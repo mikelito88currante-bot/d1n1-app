@@ -124,6 +124,7 @@
   }
   .badge-admin { background: rgba(201,146,42,0.12); color: var(--accent2); border: 1.5px solid var(--accent); }
   .badge-worker { background: rgba(42,125,201,0.1); color: var(--blue); border: 1.5px solid var(--blue); }
+  .badge-revisor { background: rgba(29,168,90,0.1); color: var(--green); border: 1.5px solid var(--green); }
 
   /* ── MAIN LAYOUT ── */
   .main-layout { display: flex; flex: 1; }
@@ -522,7 +523,7 @@
     <div class="form-group"><label>Nombre completo *</label><input type="text" id="u-nombre" placeholder="Nombre Apellido"></div>
     <div class="form-group"><label>Email *</label><input type="email" id="u-email" placeholder="correo@email.com"></div>
     <div class="form-group" id="u-pass-group"><label>Contraseña *</label><input type="password" id="u-pass" placeholder="Mínimo 6 caracteres"></div>
-    <div class="form-group"><label>Rol *</label><select id="u-rol"><option value="worker">Trabajador</option><option value="admin">Admin</option></select></div>
+    <div class="form-group"><label>Rol *</label><select id="u-rol"><option value="worker">Trabajador</option><option value="revisor">Revisor</option><option value="admin">Admin</option></select></div>
     <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px;">
       <button class="btn btn-secondary" onclick="closeModal('modal-usuario')">Cancelar</button>
       <button class="btn btn-primary" onclick="saveUser()">Guardar</button>
@@ -586,30 +587,33 @@ function showApp(){
   const name=currentProfile?.nombre||currentUser.email;
   document.getElementById('header-name').textContent=name;
   const badge=document.getElementById('header-role-badge');
-  const isAdmin=currentProfile?.rol==='admin';
-  badge.textContent=isAdmin?'Admin':'Trabajador';
-  badge.className='badge-role '+(isAdmin?'badge-admin':'badge-worker');
+  const rol=currentProfile?.rol;
+  const isAdmin=rol==='admin';
+  badge.textContent=isAdmin?'Admin':rol==='revisor'?'Revisor':'Trabajador';
+  badge.className='badge-role '+(isAdmin?'badge-admin':rol==='revisor'?'badge-revisor':'badge-worker');
   document.getElementById('welcome-title').textContent='Hola, '+name+' 👋';
   buildSidebar(); loadAll(); showPage('inicio');
 }
 
 function buildSidebar(){
   const isAdmin=currentProfile?.rol==='admin';
+  const isRevisor=currentProfile?.rol==='revisor';
   const items=[
     {id:'inicio',icon:'🏠',label:'Inicio',always:true},
     {id:'eventos',icon:'📋',label:'Eventos',always:true},
     {id:'crear-evento',icon:'➕',label:'Crear Evento',admin:true},
     {id:'calendario',icon:'📅',label:'Calendario',always:true},
     {id:'usuarios',icon:'👥',label:'Usuarios',admin:true},
-    {id:'estadisticas',icon:'📊',label:'Estadísticas',admin:true},
-    {id:'nominas-admin',icon:'📄',label:'Adjuntar Nóminas',admin:true},
+    {id:'estadisticas',icon:'📊',label:'Estadísticas',adminrevisor:true},
+    {id:'nominas-admin',icon:'📄',label:'Adjuntar Nóminas',adminrevisor:true},
     {id:'mis-nominas',icon:'💰',label:'Mis Nóminas',worker:true},
-    {id:'enviar-info',icon:'📤',label:'Enviar Info',admin:true},
+    {id:'enviar-info',icon:'📤',label:'Enviar Info',adminrevisor:true},
   ];
   const sb=document.getElementById('sidebar'); sb.innerHTML='';
   items.forEach(item=>{
     if(item.admin&&!isAdmin)return;
-    if(item.worker&&isAdmin)return;
+    if(item.adminrevisor&&!isAdmin&&!isRevisor)return;
+    if(item.worker&&(isAdmin||isRevisor))return;
     const btn=document.createElement('button');
     btn.className='nav-item'; btn.id='nav-'+item.id;
     btn.innerHTML=`<span class="icon">${item.icon}</span>${item.label}`;
@@ -719,7 +723,8 @@ function renderEvents(filtered=null){
   const events=filtered||allEvents;
   const grid=document.getElementById('events-grid');
   const isAdmin=currentProfile?.rol==='admin';
-  let list=isAdmin?events:events.filter(e=>(e.trabajadores||[]).some(t=>t.id===currentUser.id));
+  const isRevisor=currentProfile?.rol==='revisor';
+  let list=(isAdmin||isRevisor)?events:events.filter(e=>(e.trabajadores||[]).some(t=>t.id===currentUser.id));
   if(!list.length){grid.innerHTML='<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">No hay eventos</div></div>';return;}
   grid.innerHTML=list.map(e=>`
     <div class="event-card" onclick="openEventModal('${e.id}')">
@@ -740,6 +745,7 @@ function filterEvents(){
 async function openEventModal(id){
   const e=allEvents.find(ev=>ev.id===id); if(!e) return;
   const isAdmin=currentProfile?.rol==='admin';
+  const isRevisor=currentProfile?.rol==='revisor';
   document.getElementById('modal-ev-title').textContent=e.nombre;
   const zonas=(e.zonas||[]).map(z=>`<div class="access-zone"><div class="zone-name">${z.nombre}</div><div class="zone-desc">${z.desc}</div><div class="zone-count">📱 ${z.moviles}</div></div>`).join('')||'<div style="color:var(--text2);font-size:13px;">Sin zonas</div>';
   const workers=(e.trabajadores||[]).map(w=>`<span class="tag">${w.nombre}</span>`).join('')||'<span style="color:var(--text2);font-size:13px;">Sin asignar</span>';
@@ -775,7 +781,7 @@ function renderUsers(){
     <tr>
       <td style="font-weight:600;">${u.nombre}</td>
       <td style="color:var(--text2);">${u.email||'-'}</td>
-      <td><span class="badge-role ${u.rol==='admin'?'badge-admin':'badge-worker'}">${u.rol==='admin'?'Admin':'Trabajador'}</span></td>
+      <td><span class="badge-role ${u.rol==='admin'?'badge-admin':u.rol==='revisor'?'badge-revisor':'badge-worker'}">${u.rol==='admin'?'Admin':u.rol==='revisor'?'Revisor':'Trabajador'}</span></td>
       <td class="td-actions">
         <button class="btn btn-secondary btn-sm" onclick="editUser('${u.id}')">✏️ Editar</button>
         ${u.id!==currentUser.id?`<button class="btn btn-danger btn-sm" onclick="deleteUser('${u.id}')">🗑</button>`:''}
@@ -836,8 +842,9 @@ function renderCalendar(){
   document.getElementById('cal-month-label').textContent=months[calMonth]+' '+calYear;
   const filterWorker=document.getElementById('cal-filter-worker').value;
   const isAdmin=currentProfile?.rol==='admin';
+  const isRevisor=currentProfile?.rol==='revisor';
   let events=allEvents;
-  if(!isAdmin) events=events.filter(e=>(e.trabajadores||[]).some(t=>t.id===currentUser.id));
+  if(!isAdmin&&!isRevisor) events=events.filter(e=>(e.trabajadores||[]).some(t=>t.id===currentUser.id));
   if(filterWorker) events=events.filter(e=>(e.trabajadores||[]).some(t=>t.id===filterWorker));
   const first=new Date(calYear,calMonth,1);
   const last=new Date(calYear,calMonth+1,0);
@@ -860,8 +867,9 @@ function renderCalendar(){
 // STATS
 function renderStats(){
   const isAdmin=currentProfile?.rol==='admin';
+  const isRevisor=currentProfile?.rol==='revisor';
   const grid=document.getElementById('stats-grid');
-  if(!isAdmin){grid.innerHTML='';return;}
+  if(!isAdmin&&!isRevisor){grid.innerHTML='';return;}
   const today=new Date().toISOString().slice(0,10);
   grid.innerHTML=`
     <div class="stat-card"><div class="stat-num">${allEvents.length}</div><div class="stat-label">Eventos totales</div></div>
