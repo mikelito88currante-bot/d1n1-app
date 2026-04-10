@@ -370,6 +370,10 @@
               <div class="form-group"><label>Fecha *</label><input type="date" id="ev-fecha"></div>
             </div>
             <div class="form-row">
+              <div class="form-group"><label>Cliente / Empresa</label><input type="text" id="ev-cliente" placeholder="Ej: Live Nation, Movistar Arena..."></div>
+              <div class="form-group"><label>Ticketeras</label><input type="text" id="ev-ticketeras" placeholder="Ej: TicketMaster, Fever..."></div>
+            </div>
+            <div class="form-row">
               <div class="form-group">
                 <label>Recinto *</label>
                 <div style="position:relative;">
@@ -395,12 +399,6 @@
               <div class="form-group"><label>Hora Reunión (opcional)</label><input type="time" id="ev-hora-reunion"></div>
               <div class="form-group"><label>Hora Apertura de Puertas</label><input type="time" id="ev-hora-apertura"></div>
             </div>
-            <div class="form-group"><label>Ticketeras</label><input type="text" id="ev-ticketeras" placeholder="Ej: TicketMaster, Fever..."></div>
-          </div>
-          <div class="form-section">
-            <div class="form-section-title">Accesos y Zonas</div>
-
-            <!-- ZONAS SUGERIDAS DEL RECINTO -->
             <div id="zonas-sugeridas-panel" style="display:none;margin-bottom:14px;">
               <div style="font-size:12px;color:var(--text2);margin-bottom:8px;font-weight:600;">✅ Selecciona las zonas que quieres usar (del último evento en este recinto):</div>
               <div id="zonas-sugeridas-lista" style="display:flex;flex-direction:column;gap:6px;"></div>
@@ -692,7 +690,7 @@ function toast(msg,type='success'){
 
 // EVENTS
 function resetEventForm(){
-  ['ev-nombre','ev-recinto','ev-ciudad','ev-ticketeras','ev-observaciones'].forEach(id=>document.getElementById(id).value='');
+  ['ev-nombre','ev-recinto','ev-ciudad','ev-cliente','ev-ticketeras','ev-observaciones'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('ev-fecha').value=''; document.getElementById('ev-hora').value=''; document.getElementById('ev-hora-reunion').value=''; document.getElementById('ev-hora-apertura').value='';
   document.getElementById('zona-nombre').value=''; document.getElementById('zona-desc').value=''; document.getElementById('zona-moviles').value='';
   eventZonas=[]; eventWorkers=[]; renderZonas(); renderEventWorkerTags();
@@ -747,6 +745,7 @@ async function saveEvent(){
   if(!nombre||!fecha||!recinto||!ciudad){toast('Rellena los campos obligatorios (*)','error');return;}
   const {error}=await db.from('events').insert({
     nombre,fecha,recinto,ciudad,
+    cliente:document.getElementById('ev-cliente').value.trim()||null,
     hora:document.getElementById('ev-hora').value||null,
     hora_reunion:document.getElementById('ev-hora-reunion').value||null,
     hora_apertura:document.getElementById('ev-hora-apertura').value||null,
@@ -770,7 +769,7 @@ function renderEvents(filtered=null){
     <div class="event-card" onclick="openEventModal('${e.id}')">
       <div class="event-card-date">📅 ${formatDate(e.fecha)}${e.hora?' · 🕐 '+e.hora:''}</div>
       <div class="event-card-title">${e.nombre}</div>
-      <div class="event-card-meta">📍 ${e.recinto} · ${e.ciudad}</div>
+      <div class="event-card-meta">📍 ${e.recinto} · ${e.ciudad}${e.cliente?' · 🏢 '+e.cliente:''}</div>
       <div class="event-card-footer">
         <span class="mobiles-badge">📱 ${e.total_moviles||0} móviles</span>
         <span style="color:var(--text2);font-size:12px;">👤 ${(e.trabajadores||[]).length}</span>
@@ -795,6 +794,7 @@ async function openEventModal(id){
       <div><div style="color:var(--text2);font-size:11px;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Recinto</div><div style="font-size:16px;font-weight:700;">${e.recinto}</div></div>
       <div><div style="color:var(--text2);font-size:11px;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Ciudad</div><div style="font-size:16px;font-weight:700;">${e.ciudad}</div></div>
     </div>
+    ${e.cliente?`<div style="margin-bottom:12px;font-size:14px;">🏢 <b>Cliente / Empresa:</b> ${e.cliente}</div>`:''}
     ${e.hora||e.hora_reunion||e.hora_apertura?`
     <div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:14px;padding:12px 16px;background:var(--surface2);border-radius:var(--radius);border:1px solid var(--border);">
       ${e.hora_reunion?`<div><span style="color:var(--text2);font-size:11px;text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:2px;">Reunión</span><span style="font-weight:700;font-size:15px;">🤝 ${e.hora_reunion}</span></div>`:''}
@@ -1081,7 +1081,7 @@ function generateReport(){
 
           <table style="width:100%;border-collapse:collapse;">
             ${e.ticketeras?fila('TICKETERA',e.ticketeras,true):''}
-            ${fila('EMPRESA',e.ticketeras?'IMPULSA':'-')}
+            ${e.cliente?fila('EMPRESA',e.cliente,true):''}
             ${e.hora_reunion?fila('CITACIÓN',e.hora_reunion,true,'#fff9ee','#c9922a'):''}
             ${e.hora_apertura?fila('APERTURA',e.hora_apertura,true,'#fff9ee','#c9922a'):''}
             ${e.hora?fila('INICIO EVENTO',e.hora,true,'#fff9ee','#c9922a'):''}
