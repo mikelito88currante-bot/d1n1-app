@@ -370,8 +370,25 @@
               <div class="form-group"><label>Fecha *</label><input type="date" id="ev-fecha"></div>
             </div>
             <div class="form-row">
-              <div class="form-group"><label>Recinto *</label><input type="text" id="ev-recinto" placeholder="Ej: WiZink Center"></div>
+              <div class="form-group">
+                <label>Recinto *</label>
+                <div style="position:relative;">
+                  <input type="text" id="ev-recinto" placeholder="Ej: WiZink Center" oninput="buscarRecinto(this.value)" onblur="setTimeout(()=>document.getElementById('recinto-sugerencias').style.display='none',200)" autocomplete="off">
+                  <div id="recinto-sugerencias" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1.5px solid var(--accent);border-radius:0 0 8px 8px;z-index:100;box-shadow:var(--shadow-lg);max-height:200px;overflow-y:auto;"></div>
+                </div>
+              </div>
               <div class="form-group"><label>Ciudad *</label><input type="text" id="ev-ciudad" placeholder="Ej: Madrid"></div>
+            </div>
+
+            <!-- AVISO ZONAS ANTERIORES -->
+            <div id="zonas-recinto-aviso" style="display:none;margin-bottom:12px;padding:12px 16px;background:#fffbeb;border:2px solid var(--accent);border-radius:var(--radius);display:none;">
+              <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+                <div>
+                  <div style="font-weight:700;font-size:13px;color:var(--accent2);">🏟️ Recinto reconocido</div>
+                  <div id="zonas-recinto-texto" style="font-size:12px;color:var(--text2);margin-top:2px;"></div>
+                </div>
+                <button class="btn btn-primary btn-sm" onclick="cargarZonasAnteriores()" style="white-space:nowrap;">⚡ Cargar zonas anteriores</button>
+              </div>
             </div>
             <div class="form-row">
               <div class="form-group"><label>Hora del Evento</label><input type="time" id="ev-hora"></div>
@@ -382,6 +399,17 @@
           </div>
           <div class="form-section">
             <div class="form-section-title">Accesos y Zonas</div>
+
+            <!-- ZONAS SUGERIDAS DEL RECINTO -->
+            <div id="zonas-sugeridas-panel" style="display:none;margin-bottom:14px;">
+              <div style="font-size:12px;color:var(--text2);margin-bottom:8px;font-weight:600;">✅ Selecciona las zonas que quieres usar (del último evento en este recinto):</div>
+              <div id="zonas-sugeridas-lista" style="display:flex;flex-direction:column;gap:6px;"></div>
+              <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+                <button class="btn btn-success btn-sm" onclick="confirmarZonasSugeridas()">✅ Añadir seleccionadas</button>
+                <button class="btn btn-secondary btn-sm" onclick="ocultarZonasSugeridas()">✕ Cancelar</button>
+              </div>
+            </div>
+
             <div id="zonas-list"></div>
             <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;">
               <input type="text" id="zona-nombre" placeholder="Zona (ej: PISTA)" style="flex:1;background:var(--surface2);border:1.5px solid var(--border);color:var(--text);padding:10px 12px;border-radius:var(--radius);font-family:var(--font-body);font-size:14px;outline:none;min-width:120px;">
@@ -640,7 +668,7 @@ function showPage(id){
   if(id==='eventos') renderEvents();
   if(id==='usuarios') renderUsers();
   if(id==='calendario'){populateCalWorkerFilter(); renderCalendar();}
-  if(id==='estadisticas'){document.getElementById('stats-month').value=new Date().toISOString().slice(0,7); loadStats();}
+  if(id==='estadisticas'){document.getElementById('stats-month').value=new Date().toLocaleDateString('sv-SE').slice(0,7); loadStats();}
   if(id==='nominas-admin'){renderNominasAdmin(); populateNominaWorkers();}
   if(id==='mis-nominas') renderMisNominas();
   if(id==='inicio') renderStats();
@@ -668,6 +696,9 @@ function resetEventForm(){
   document.getElementById('ev-fecha').value=''; document.getElementById('ev-hora').value=''; document.getElementById('ev-hora-reunion').value=''; document.getElementById('ev-hora-apertura').value='';
   document.getElementById('zona-nombre').value=''; document.getElementById('zona-desc').value=''; document.getElementById('zona-moviles').value='';
   eventZonas=[]; eventWorkers=[]; renderZonas(); renderEventWorkerTags();
+  zonasAnterioresCargadas=[];
+  ocultarAvisoRecinto();
+  const rs=document.getElementById('recinto-sugerencias'); if(rs) rs.style.display='none';
 }
 function addZona(){
   const nombre=document.getElementById('zona-nombre').value.trim();
@@ -880,11 +911,11 @@ function renderCalendar(){
   const last=new Date(calYear,calMonth+1,0);
   let startDay=first.getDay()-1; if(startDay<0) startDay=6;
   const grid=document.getElementById('cal-grid'); grid.innerHTML='';
-  const today=new Date().toISOString().slice(0,10);
+  const today=new Date().toLocaleDateString('sv-SE');
   for(let i=0;i<startDay;i++){const d=document.createElement('div');d.className='cal-day other-month';grid.appendChild(d);}
   for(let day=1;day<=last.getDate();day++){
     const date=new Date(calYear,calMonth,day);
-    const dateStr=date.toISOString().slice(0,10);
+    const dateStr=date.toLocaleDateString('sv-SE');
     const dayEvents=events.filter(e=>e.fecha===dateStr);
     const d=document.createElement('div');
     d.className='cal-day'+(today===dateStr?' today':'');
@@ -900,7 +931,7 @@ function renderStats(){
   const isRevisor=currentProfile?.rol==='revisor';
   const grid=document.getElementById('stats-grid');
   if(!isAdmin&&!isRevisor){grid.innerHTML='';return;}
-  const today=new Date().toISOString().slice(0,10);
+  const today=new Date().toLocaleDateString('sv-SE');
   grid.innerHTML=`
     <div class="stat-card"><div class="stat-num">${allEvents.length}</div><div class="stat-label">Eventos totales</div></div>
     <div class="stat-card"><div class="stat-num">${allUsers.length}</div><div class="stat-label">Usuarios</div></div>
@@ -991,7 +1022,7 @@ function generateReport(){
 
   const events=allEvents
     .filter(e=>e.fecha>=from&&e.fecha<=to)
-    .sort((a,b)=>a.fecha.localeCompare(b.fecha));
+    .sort((a,b)=>a.fecha.localeCompare(b.fecha)||a.nombre.localeCompare(b.nombre));
 
   const output=document.getElementById('report-output');
   if(!events.length){
@@ -999,112 +1030,261 @@ function generateReport(){
     return;
   }
 
+  const diasNombres=['DOMINGO','LUNES','MARTES','MIÉRCOLES','JUEVES','VIERNES','SÁBADO'];
+
+  // Agrupar eventos por fecha
+  const porFecha={};
+  events.forEach(e=>{
+    if(!porFecha[e.fecha]) porFecha[e.fecha]=[];
+    porFecha[e.fecha].push(e);
+  });
+  const fechas=Object.keys(porFecha).sort();
+  const numCols=fechas.length;
+
+  // Colores alternos para columnas (dorado y gris como el excel)
+  const colBgs=['#fff9ee','#f5f7fa'];
+  const colHeaders=['#c9922a','#4a5568'];
+
+  // Construir columnas HTML
+  function fila(label, val, bold=false, bg='', color='#1a1e2a'){
+    return `<tr>
+      <td style="background:#f0f2f5;font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;padding:4px 6px;border:1px solid #e0e4ea;white-space:nowrap;">${label}</td>
+      <td style="background:${bg||'#fff'};font-size:11px;font-weight:${bold?'700':'400'};color:${color};padding:4px 6px;border:1px solid #e0e4ea;">${val||'-'}</td>
+    </tr>`;
+  }
+
+  const colsHtml = fechas.map((fecha,ci)=>{
+    const evs=porFecha[fecha];
+    const dateObj=new Date(fecha+'T12:00:00');
+    const diaNombre=diasNombres[dateObj.getDay()];
+    const fechaFmt=formatDate(fecha);
+    const headerBg=colHeaders[ci%2];
+
+    return `<td style="vertical-align:top;padding:0;border:2px solid #c8cdd6;min-width:200px;max-width:260px;">
+      <!-- Cabecera de columna con día y fecha -->
+      <div style="background:${headerBg};color:#fff;text-align:center;padding:8px 10px;">
+        <div style="font-size:13px;font-weight:700;letter-spacing:1px;">${diaNombre}</div>
+        <div style="font-size:16px;font-weight:700;">${fechaFmt}</div>
+      </div>
+
+      ${evs.map(e=>{
+        const zonas=e.zonas||[];
+        const trabajadores=e.trabajadores||[];
+        return `
+        <!-- Evento -->
+        <div style="border-top:3px solid ${headerBg};">
+          <!-- Nombre evento -->
+          <div style="background:${headerBg}22;padding:6px 8px;border-bottom:1px solid #e0e4ea;">
+            <div style="font-size:12px;font-weight:700;color:${headerBg};text-transform:uppercase;letter-spacing:0.5px;">${e.nombre}</div>
+            <div style="font-size:10px;color:#6b7280;">${e.recinto} · ${e.ciudad}</div>
+          </div>
+
+          <table style="width:100%;border-collapse:collapse;">
+            ${e.ticketeras?fila('TICKETERA',e.ticketeras,true):''}
+            ${fila('EMPRESA',e.ticketeras?'IMPULSA':'-')}
+            ${e.hora_reunion?fila('CITACIÓN',e.hora_reunion,true,'#fff9ee','#c9922a'):''}
+            ${e.hora_apertura?fila('APERTURA',e.hora_apertura,true,'#fff9ee','#c9922a'):''}
+            ${e.hora?fila('INICIO EVENTO',e.hora,true,'#fff9ee','#c9922a'):''}
+
+            ${zonas.length?`
+            <tr><td colspan="2" style="background:#1a1e2a;color:#fff;font-size:10px;font-weight:700;letter-spacing:1px;padding:4px 6px;text-transform:uppercase;border:1px solid #e0e4ea;">ACCESOS</td></tr>
+            ${zonas.map(z=>fila(z.nombre, `${z.desc} &nbsp;<b style="color:#c9922a">${z.moviles} MOV</b>`, false)).join('')}
+            ${fila('TOTAL MÓVILES', `<b style="color:#c9922a;font-size:13px;">${e.total_moviles||0}</b>`, true, '#fff9ee')}
+            `:''}
+
+            ${trabajadores.length?`
+            <tr><td colspan="2" style="background:#2d3748;color:#fff;font-size:10px;font-weight:700;letter-spacing:1px;padding:4px 6px;text-transform:uppercase;border:1px solid #e0e4ea;">RESPONSABLE</td></tr>
+            ${fila('',trabajadores.map(t=>t.nombre).join(' · '),true)}
+            `:''}
+
+            ${e.observaciones?`
+            <tr><td colspan="2" style="background:#744210;color:#fff;font-size:10px;font-weight:700;letter-spacing:1px;padding:4px 6px;text-transform:uppercase;border:1px solid #e0e4ea;">OBSERVACIONES</td></tr>
+            <tr><td colspan="2" style="font-size:10px;padding:6px 8px;border:1px solid #e0e4ea;color:#1a1e2a;line-height:1.5;white-space:pre-wrap;">${e.observaciones}</td></tr>
+            `:''}
+          </table>
+        </div>`;
+      }).join('<div style="height:6px;background:#e0e4ea;"></div>')}
+    </td>`;
+  }).join('');
+
   const fFrom=formatDate(from), fTo=formatDate(to);
 
-  let html=`
+  const html=`
   <div id="informe-imprimible">
     <style>
       @media print {
-        body * { visibility: hidden; }
-        #informe-imprimible, #informe-imprimible * { visibility: visible; }
-        #informe-imprimible { position: fixed; top:0; left:0; width:100%; padding:20px; }
+        body * { visibility:hidden; }
+        #informe-imprimible, #informe-imprimible * { visibility:visible; }
+        #informe-imprimible { position:fixed; top:0; left:0; width:100%; padding:10px; font-size:10px; }
         .no-print { display:none !important; }
-        .evento-informe { page-break-inside: avoid; }
+        #tabla-informe { page-break-inside:auto; }
+        #tabla-informe td { page-break-inside:avoid; }
       }
+      #tabla-informe td { page-break-inside:avoid; }
     </style>
 
-    <!-- CABECERA DEL INFORME -->
-    <div style="border:2px solid var(--accent);border-radius:12px;padding:20px 24px;margin-bottom:24px;background:var(--accent-light);">
-      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
-        <div>
-          <div style="font-family:var(--font-condensed);font-size:22px;font-weight:700;letter-spacing:2px;color:var(--accent2);">INFORME DE EVENTOS — D1N1</div>
-          <div style="font-size:13px;color:var(--text2);margin-top:4px;">Período: <b>${fFrom}</b> → <b>${fTo}</b> &nbsp;·&nbsp; <b>${events.length}</b> evento${events.length!==1?'s':''}</div>
-        </div>
-        <div style="font-size:12px;color:var(--text2);">Generado el ${new Date().toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric'})}</div>
-      </div>
+    <!-- TÍTULO -->
+    <div style="text-align:center;margin-bottom:16px;padding:12px;background:linear-gradient(135deg,#c9922a,#a87520);border-radius:10px;color:#fff;">
+      <div style="font-size:20px;font-weight:700;letter-spacing:3px;">D1N1 — CONTROL DE ACCESOS Y EVENTOS</div>
+      <div style="font-size:13px;opacity:0.9;margin-top:4px;">${fFrom} AL ${fTo} &nbsp;·&nbsp; ${events.length} evento${events.length!==1?'s':''} &nbsp;·&nbsp; Generado el ${new Date().toLocaleDateString('es-ES')}</div>
     </div>
 
-    <!-- EVENTOS -->
-    ${events.map((e,i)=>{
-      const zonas=(e.zonas||[]);
-      const trabajadores=(e.trabajadores||[]);
-      return `
-      <div class="evento-informe" style="background:var(--surface);border:1.5px solid var(--border);border-radius:12px;margin-bottom:20px;overflow:hidden;box-shadow:var(--shadow);">
-
-        <!-- Header evento -->
-        <div style="background:linear-gradient(135deg,var(--accent),var(--accent2));padding:14px 20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-          <div>
-            <div style="font-family:var(--font-condensed);font-size:20px;font-weight:700;color:#fff;letter-spacing:1px;">${e.nombre}</div>
-            <div style="font-size:13px;color:rgba(255,255,255,0.85);">📍 ${e.recinto} · ${e.ciudad}</div>
-          </div>
-          <div style="background:rgba(255,255,255,0.2);border-radius:8px;padding:8px 14px;text-align:center;">
-            <div style="font-family:var(--font-condensed);font-size:20px;font-weight:700;color:#fff;">${formatDate(e.fecha)}</div>
-          </div>
-        </div>
-
-        <div style="padding:16px 20px;">
-
-          <!-- Horarios -->
-          ${e.hora_reunion||e.hora_apertura||e.hora?`
-          <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px;padding:12px 16px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);">
-            ${e.hora_reunion?`<div style="text-align:center;"><div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text2);margin-bottom:2px;">🤝 Reunión</div><div style="font-weight:700;font-size:16px;">${e.hora_reunion}</div></div>`:''}
-            ${e.hora_apertura?`<div style="text-align:center;"><div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text2);margin-bottom:2px;">🚪 Apertura</div><div style="font-weight:700;font-size:16px;">${e.hora_apertura}</div></div>`:''}
-            ${e.hora?`<div style="text-align:center;"><div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text2);margin-bottom:2px;">🎤 Inicio</div><div style="font-weight:700;font-size:16px;">${e.hora}</div></div>`:''}
-          </div>`:''
-          }
-
-          ${e.ticketeras?`<div style="margin-bottom:12px;font-size:13px;">🎟 <b>Ticketeras:</b> ${e.ticketeras}</div>`:''}
-
-          <!-- Zonas de acceso -->
-          ${zonas.length?`
-          <div style="margin-bottom:14px;">
-            <div style="font-family:var(--font-condensed);font-size:11px;letter-spacing:2px;color:var(--accent2);text-transform:uppercase;font-weight:700;margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid var(--accent-light);">Zonas de Acceso</div>
-            ${zonas.map(z=>`
-              <div style="display:flex;align-items:center;gap:12px;padding:7px 10px;background:var(--surface2);border-radius:6px;margin-bottom:4px;border:1px solid var(--border);">
-                <div style="font-weight:700;min-width:100px;">${z.nombre}</div>
-                <div style="color:var(--text2);flex:1;font-size:13px;">${z.desc}</div>
-                <div style="color:var(--accent2);font-weight:700;font-size:13px;white-space:nowrap;">📱 ${z.moviles} móviles</div>
-              </div>`).join('')}
-            <div style="margin-top:8px;padding:8px 12px;background:var(--accent-light);border-radius:6px;font-family:var(--font-condensed);font-size:13px;color:var(--text2);border:1px solid var(--accent-light2);">
-              TOTAL MÓVILES NECESARIOS: <span style="color:var(--accent2);font-size:16px;font-weight:700;">${e.total_moviles||0}</span>
-            </div>
-          </div>`:''
-          }
-
-          <!-- Trabajadores -->
-          ${trabajadores.length?`
-          <div style="margin-bottom:${e.observaciones?'14px':'0'};">
-            <div style="font-family:var(--font-condensed);font-size:11px;letter-spacing:2px;color:var(--accent2);text-transform:uppercase;font-weight:700;margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid var(--accent-light);">Equipo Asignado</div>
-            <div style="display:flex;flex-wrap:wrap;gap:6px;">
-              ${trabajadores.map(t=>`<span style="background:var(--accent-light);border:1px solid var(--accent-light2);border-radius:20px;padding:4px 12px;font-size:13px;color:var(--accent2);font-weight:600;">👤 ${t.nombre}</span>`).join('')}
-            </div>
-          </div>`:''
-          }
-
-          <!-- Observaciones -->
-          ${e.observaciones?`
-          <div>
-            <div style="font-family:var(--font-condensed);font-size:11px;letter-spacing:2px;color:var(--accent2);text-transform:uppercase;font-weight:700;margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid var(--accent-light);">📝 Observaciones</div>
-            <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:12px 14px;font-size:13px;color:var(--text);line-height:1.7;white-space:pre-wrap;">${e.observaciones}</div>
-          </div>`:''}
-
-        </div>
-      </div>`;
-    }).join('')}
+    <!-- TABLA HORIZONTAL -->
+    <div style="overflow-x:auto;">
+      <table id="tabla-informe" style="border-collapse:collapse;width:100%;table-layout:fixed;">
+        <tr>${colsHtml}</tr>
+      </table>
+    </div>
 
     <!-- BOTONES -->
-    <div class="no-print" style="display:flex;gap:12px;margin-top:8px;flex-wrap:wrap;">
-      <button class="btn btn-primary" onclick="window.print()" style="flex:1;justify-content:center;">🖨️ Imprimir / Guardar PDF</button>
+    <div class="no-print" style="display:flex;gap:12px;margin-top:16px;flex-wrap:wrap;">
+      <button class="btn btn-primary" onclick="imprimirApaisado()" style="flex:1;justify-content:center;">🖨️ Imprimir / Guardar PDF (Apaisado)</button>
       <button class="btn btn-secondary" onclick="document.getElementById('report-output').innerHTML=''" style="flex:1;justify-content:center;">✕ Limpiar</button>
     </div>
   </div>`;
 
   output.innerHTML=html;
-  // Scroll hasta el informe
   output.scrollIntoView({behavior:'smooth', block:'start'});
 }
 
-// HELPERS
+function imprimirApaisado(){
+  // Forzar impresión en horizontal para que quepan todas las columnas
+  const style=document.createElement('style');
+  style.id='print-landscape';
+  style.innerHTML='@page{size:landscape;margin:8mm;}';
+  document.head.appendChild(style);
+  window.print();
+  setTimeout(()=>{
+    const s=document.getElementById('print-landscape');
+    if(s) s.remove();
+  },1000);
+}
+
+// RECINTO AUTOCOMPLETE Y ZONAS ANTERIORES
+let zonasAnterioresCargadas = [];
+
+function buscarRecinto(valor) {
+  const sug = document.getElementById('recinto-sugerencias');
+  if (!valor || valor.length < 2) { sug.style.display = 'none'; ocultarAvisoRecinto(); return; }
+
+  // Obtener recintos únicos de eventos anteriores que coincidan
+  const recintos = [...new Set(
+    allEvents
+      .filter(e => e.recinto && e.recinto.toLowerCase().includes(valor.toLowerCase()))
+      .map(e => e.recinto)
+  )].slice(0, 6);
+
+  if (!recintos.length) { sug.style.display = 'none'; ocultarAvisoRecinto(); return; }
+
+  sug.innerHTML = recintos.map(r => `
+    <div onclick="seleccionarRecinto('${r.replace(/'/g,"\\'")}');"
+      style="padding:10px 14px;cursor:pointer;font-size:14px;border-bottom:1px solid var(--border);transition:background 0.1s;"
+      onmouseover="this.style.background='#fff9ee'" onmouseout="this.style.background='#fff'">
+      🏟️ ${r}
+    </div>`).join('');
+  sug.style.display = 'block';
+}
+
+function seleccionarRecinto(recinto) {
+  document.getElementById('ev-recinto').value = recinto;
+  document.getElementById('recinto-sugerencias').style.display = 'none';
+
+  // Buscar el evento más reciente en ese recinto
+  const eventosRecinto = allEvents
+    .filter(e => e.recinto && e.recinto.toLowerCase() === recinto.toLowerCase() && (e.zonas||[]).length > 0)
+    .sort((a,b) => b.fecha.localeCompare(a.fecha));
+
+  if (eventosRecinto.length > 0) {
+    const ultimo = eventosRecinto[0];
+    zonasAnterioresCargadas = JSON.parse(JSON.stringify(ultimo.zonas || []));
+
+    // Autorellenar ciudad también
+    if (!document.getElementById('ev-ciudad').value && ultimo.ciudad) {
+      document.getElementById('ev-ciudad').value = ultimo.ciudad;
+    }
+
+    // Mostrar aviso
+    const aviso = document.getElementById('zonas-recinto-aviso');
+    document.getElementById('zonas-recinto-texto').textContent =
+      `Último evento: "${ultimo.nombre}" (${formatDate(ultimo.fecha)}) · ${zonasAnterioresCargadas.length} zonas guardadas`;
+    aviso.style.display = 'flex';
+    aviso.style.flexDirection = 'column';
+    aviso.style.gap = '8px';
+    // fix: usar el display correcto
+    aviso.style.display = 'block';
+  } else {
+    ocultarAvisoRecinto();
+  }
+}
+
+function ocultarAvisoRecinto() {
+  const aviso = document.getElementById('zonas-recinto-aviso');
+  if (aviso) aviso.style.display = 'none';
+  ocultarZonasSugeridas();
+}
+
+function cargarZonasAnteriores() {
+  if (!zonasAnterioresCargadas.length) return;
+
+  // Ocultar aviso y mostrar panel de selección
+  document.getElementById('zonas-recinto-aviso').style.display = 'none';
+  const panel = document.getElementById('zonas-sugeridas-panel');
+  const lista = document.getElementById('zonas-sugeridas-lista');
+
+  lista.innerHTML = zonasAnterioresCargadas.map((z, i) => `
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius);transition:border-color 0.2s;" id="zona-sug-${i}">
+      <input type="checkbox" id="zona-check-${i}" checked
+        onchange="toggleZonaSugerida(${i})"
+        style="width:18px;height:18px;accent-color:var(--accent);cursor:pointer;flex-shrink:0;">
+      <div style="flex:1;">
+        <div style="font-weight:700;font-size:13px;">${z.nombre}</div>
+        <div style="font-size:12px;color:var(--text2);">${z.desc}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <label style="font-size:11px;color:var(--text2);">Móviles:</label>
+        <input type="number" id="zona-mov-${i}" value="${z.moviles}" min="0"
+          style="width:64px;background:#fff;border:1.5px solid var(--border);color:var(--text);padding:5px 8px;border-radius:6px;font-size:13px;font-weight:700;outline:none;text-align:center;">
+      </div>
+    </div>`).join('');
+
+  panel.style.display = 'block';
+}
+
+function toggleZonaSugerida(i) {
+  const check = document.getElementById(`zona-check-${i}`);
+  const row = document.getElementById(`zona-sug-${i}`);
+  if (check.checked) {
+    row.style.borderColor = 'var(--accent)';
+    row.style.background = '#fffbeb';
+  } else {
+    row.style.borderColor = 'var(--border)';
+    row.style.background = 'var(--surface2)';
+    row.style.opacity = '0.5';
+  }
+}
+
+function confirmarZonasSugeridas() {
+  zonasAnterioresCargadas.forEach((z, i) => {
+    const check = document.getElementById(`zona-check-${i}`);
+    const movInput = document.getElementById(`zona-mov-${i}`);
+    if (check && check.checked) {
+      const moviles = parseInt(movInput?.value) || z.moviles;
+      // Evitar duplicados
+      if (!eventZonas.find(ez => ez.nombre.toLowerCase() === z.nombre.toLowerCase())) {
+        eventZonas.push({ nombre: z.nombre, desc: z.desc, moviles });
+      }
+    }
+  });
+  renderZonas();
+  ocultarZonasSugeridas();
+  toast(`✅ Zonas cargadas correctamente`);
+}
+
+function ocultarZonasSugeridas() {
+  const panel = document.getElementById('zonas-sugeridas-panel');
+  if (panel) panel.style.display = 'none';
+}
+
 function formatDate(d){if(!d)return'-';const[y,m,day]=d.split('-');return`${day}/${m}/${y}`;}
 function openModal(id){document.getElementById(id).classList.add('open');}
 function closeModal(id){document.getElementById(id).classList.remove('open');}
