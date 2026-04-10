@@ -360,7 +360,8 @@
       <!-- CREAR EVENTO -->
       <div class="page" id="page-crear-evento">
         <div class="page-header">
-          <div><div class="page-title">Crear Evento</div><div class="page-subtitle">Nuevo evento de control de accesos</div></div>
+          <div><div class="page-title" id="crear-evento-titulo">Crear Evento</div><div class="page-subtitle" id="crear-evento-subtitulo">Nuevo evento de control de accesos</div></div>
+          <button class="btn btn-secondary" id="btn-cancelar-edicion" style="display:none;" onclick="cancelarEdicion()">✕ Cancelar edición</button>
         </div>
         <div class="card">
           <div class="form-section">
@@ -437,7 +438,7 @@
           </div>
           <div style="display:flex;gap:12px;justify-content:flex-end;flex-wrap:wrap;">
             <button class="btn btn-secondary" onclick="resetEventForm()">Limpiar</button>
-            <button class="btn btn-primary" onclick="saveEvent()">💾 Guardar Evento</button>
+            <button class="btn btn-primary" id="btn-guardar-evento" onclick="saveEvent()">💾 Guardar Evento</button>
           </div>
         </div>
       </div>
@@ -574,6 +575,7 @@ const db = supabase.createClient(SUPA_URL, SUPA_KEY);
 
 let currentUser=null, currentProfile=null, allEvents=[], allUsers=[], allNominas=[];
 let eventZonas=[], eventWorkers=[];
+let editingEventId=null;
 let calYear=new Date().getFullYear(), calMonth=new Date().getMonth();
 
 window.addEventListener('load', () => {
@@ -690,6 +692,7 @@ function toast(msg,type='success'){
 
 // EVENTS
 function resetEventForm(){
+  editingEventId=null;
   ['ev-nombre','ev-recinto','ev-ciudad','ev-cliente','ev-ticketeras','ev-observaciones'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('ev-fecha').value=''; document.getElementById('ev-hora').value=''; document.getElementById('ev-hora-reunion').value=''; document.getElementById('ev-hora-apertura').value='';
   document.getElementById('zona-nombre').value=''; document.getElementById('zona-desc').value=''; document.getElementById('zona-moviles').value='';
@@ -697,6 +700,11 @@ function resetEventForm(){
   zonasAnterioresCargadas=[];
   ocultarAvisoRecinto();
   const rs=document.getElementById('recinto-sugerencias'); if(rs) rs.style.display='none';
+  // Restaurar título y botón
+  document.getElementById('crear-evento-titulo').textContent='Crear Evento';
+  document.getElementById('crear-evento-subtitulo').textContent='Nuevo evento de control de accesos';
+  document.getElementById('btn-guardar-evento').innerHTML='💾 Guardar Evento';
+  document.getElementById('btn-cancelar-edicion').style.display='none';
 }
 function addZona(){
   const nombre=document.getElementById('zona-nombre').value.trim();
@@ -743,8 +751,9 @@ async function saveEvent(){
   const recinto=document.getElementById('ev-recinto').value.trim();
   const ciudad=document.getElementById('ev-ciudad').value.trim();
   if(!nombre||!fecha||!recinto||!ciudad){toast('Rellena los campos obligatorios (*)','error');return;}
-  const {error}=await db.from('events').insert({
-    nombre,fecha,recinto,ciudad,
+
+  const eventData={
+    nombre, fecha, recinto, ciudad,
     cliente:document.getElementById('ev-cliente').value.trim()||null,
     hora:document.getElementById('ev-hora').value||null,
     hora_reunion:document.getElementById('ev-hora-reunion').value||null,
@@ -753,10 +762,24 @@ async function saveEvent(){
     observaciones:document.getElementById('ev-observaciones').value.trim()||null,
     zonas:eventZonas, trabajadores:eventWorkers,
     total_moviles:eventZonas.reduce((s,z)=>s+z.moviles,0),
-    created_by:currentUser.id,
-  });
-  if(error){toast('Error: '+error.message,'error');return;}
-  toast('✅ Evento creado'); await loadAll(); resetEventForm();
+  };
+
+  if(editingEventId){
+    // MODO EDICIÓN — UPDATE
+    const {error}=await db.from('events').update(eventData).eq('id',editingEventId);
+    if(error){toast('Error al guardar: '+error.message,'error');return;}
+    toast('✅ Evento actualizado correctamente');
+    await loadAll();
+    resetEventForm();
+    showPage('eventos');
+  } else {
+    // MODO CREACIÓN — INSERT
+    const {error}=await db.from('events').insert({...eventData, created_by:currentUser.id});
+    if(error){toast('Error: '+error.message,'error');return;}
+    toast('✅ Evento creado');
+    await loadAll();
+    resetEventForm();
+  }
 }
 function renderEvents(filtered=null){
   const events=filtered||allEvents;
@@ -814,13 +837,66 @@ async function openEventModal(id){
     `:''}
     `;
   const actions=document.getElementById('modal-ev-actions'); actions.innerHTML='';
-  if(isAdmin){const b=document.createElement('button');b.className='btn btn-danger';b.textContent='🗑 Eliminar';b.onclick=()=>deleteEvent(id);actions.appendChild(b);}
+  if(isAdmin){
+    const btnEdit=document.createElement('button');
+    btnEdit.className='btn btn-secondary';
+    btnEdit.innerHTML='✏️ Editar';
+    btnEdit.onclick=()=>{ closeModal('modal-evento'); editarEvento(id); };
+    actions.appendChild(btnEdit);
+    const btnDel=document.createElement('button');
+    btnDel.className='btn btn-danger';
+    btnDel.textContent='🗑 Eliminar';
+    btnDel.onclick=()=>deleteEvent(id);
+    actions.appendChild(btnDel);
+  }
   openModal('modal-evento');
 }
 async function deleteEvent(id){
   if(!confirm('¿Eliminar este evento?'))return;
   await db.from('events').delete().eq('id',id);
   toast('Evento eliminado'); await loadAll(); closeModal('modal-evento'); renderEvents();
+}
+
+function editarEvento(id){
+  const e=allEvents.find(ev=>ev.id===id); if(!e) return;
+  editingEventId=id;
+
+  // Rellenar todos los campos con los datos del evento
+  document.getElementById('ev-nombre').value=e.nombre||'';
+  document.getElementById('ev-fecha').value=e.fecha||'';
+  document.getElementById('ev-recinto').value=e.recinto||'';
+  document.getElementById('ev-ciudad').value=e.ciudad||'';
+  document.getElementById('ev-cliente').value=e.cliente||'';
+  document.getElementById('ev-hora').value=e.hora||'';
+  document.getElementById('ev-hora-reunion').value=e.hora_reunion||'';
+  document.getElementById('ev-hora-apertura').value=e.hora_apertura||'';
+  document.getElementById('ev-ticketeras').value=e.ticketeras||'';
+  document.getElementById('ev-observaciones').value=e.observaciones||'';
+
+  // Cargar zonas y trabajadores
+  eventZonas=JSON.parse(JSON.stringify(e.zonas||[]));
+  eventWorkers=JSON.parse(JSON.stringify(e.trabajadores||[]));
+  renderZonas();
+  renderEventWorkerTags();
+  populateEventWorkers();
+
+  // Cambiar título y botón a modo edición
+  document.getElementById('crear-evento-titulo').textContent='Editar Evento';
+  document.getElementById('crear-evento-subtitulo').textContent=`Editando: ${e.nombre}`;
+  document.getElementById('btn-guardar-evento').innerHTML='💾 Guardar Cambios';
+  document.getElementById('btn-cancelar-edicion').style.display='inline-flex';
+
+  // Ir a la página de edición
+  showPage('crear-evento');
+
+  // Scroll arriba
+  window.scrollTo({top:0, behavior:'smooth'});
+  toast(`✏️ Editando "${e.nombre}"`);
+}
+
+function cancelarEdicion(){
+  resetEventForm();
+  showPage('eventos');
 }
 
 // USERS
