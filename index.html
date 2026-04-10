@@ -376,6 +376,7 @@
             <div class="form-row">
               <div class="form-group"><label>Hora del Evento</label><input type="time" id="ev-hora"></div>
               <div class="form-group"><label>Hora Reunión (opcional)</label><input type="time" id="ev-hora-reunion"></div>
+              <div class="form-group"><label>Hora Apertura de Puertas</label><input type="time" id="ev-hora-apertura"></div>
             </div>
             <div class="form-group"><label>Ticketeras</label><input type="text" id="ev-ticketeras" placeholder="Ej: TicketMaster, Fever..."></div>
           </div>
@@ -400,6 +401,12 @@
                 <option value="">-- Seleccionar trabajador --</option>
               </select>
               <button class="btn btn-secondary" onclick="addWorkerToEvent()">+ Añadir</button>
+            </div>
+          </div>
+          <div class="form-section">
+            <div class="form-section-title">📝 Observaciones</div>
+            <div class="form-group">
+              <textarea id="ev-observaciones" placeholder="Añade aquí cualquier observación relevante del evento: instrucciones especiales, notas para el equipo, indicaciones de acceso..." style="min-height:120px;"></textarea>
             </div>
           </div>
           <div style="display:flex;gap:12px;justify-content:flex-end;flex-wrap:wrap;">
@@ -657,8 +664,8 @@ function toast(msg,type='success'){
 
 // EVENTS
 function resetEventForm(){
-  ['ev-nombre','ev-recinto','ev-ciudad','ev-ticketeras'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('ev-fecha').value=''; document.getElementById('ev-hora').value=''; document.getElementById('ev-hora-reunion').value='';
+  ['ev-nombre','ev-recinto','ev-ciudad','ev-ticketeras','ev-observaciones'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('ev-fecha').value=''; document.getElementById('ev-hora').value=''; document.getElementById('ev-hora-reunion').value=''; document.getElementById('ev-hora-apertura').value='';
   document.getElementById('zona-nombre').value=''; document.getElementById('zona-desc').value=''; document.getElementById('zona-moviles').value='';
   eventZonas=[]; eventWorkers=[]; renderZonas(); renderEventWorkerTags();
 }
@@ -711,7 +718,9 @@ async function saveEvent(){
     nombre,fecha,recinto,ciudad,
     hora:document.getElementById('ev-hora').value||null,
     hora_reunion:document.getElementById('ev-hora-reunion').value||null,
+    hora_apertura:document.getElementById('ev-hora-apertura').value||null,
     ticketeras:document.getElementById('ev-ticketeras').value.trim()||null,
+    observaciones:document.getElementById('ev-observaciones').value.trim()||null,
     zonas:eventZonas, trabajadores:eventWorkers,
     total_moviles:eventZonas.reduce((s,z)=>s+z.moviles,0),
     created_by:currentUser.id,
@@ -755,14 +764,24 @@ async function openEventModal(id){
       <div><div style="color:var(--text2);font-size:11px;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Recinto</div><div style="font-size:16px;font-weight:700;">${e.recinto}</div></div>
       <div><div style="color:var(--text2);font-size:11px;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Ciudad</div><div style="font-size:16px;font-weight:700;">${e.ciudad}</div></div>
     </div>
-    ${e.hora?`<div style="margin-bottom:10px;font-size:14px;">🕐 Evento: <b>${e.hora}</b>${e.hora_reunion?' · Reunión: <b>'+e.hora_reunion+'</b>':''}</div>`:''}
+    ${e.hora||e.hora_reunion||e.hora_apertura?`
+    <div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:14px;padding:12px 16px;background:var(--surface2);border-radius:var(--radius);border:1px solid var(--border);">
+      ${e.hora_reunion?`<div><span style="color:var(--text2);font-size:11px;text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:2px;">Reunión</span><span style="font-weight:700;font-size:15px;">🤝 ${e.hora_reunion}</span></div>`:''}
+      ${e.hora_apertura?`<div><span style="color:var(--text2);font-size:11px;text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:2px;">Apertura puertas</span><span style="font-weight:700;font-size:15px;">🚪 ${e.hora_apertura}</span></div>`:''}
+      ${e.hora?`<div><span style="color:var(--text2);font-size:11px;text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:2px;">Inicio evento</span><span style="font-weight:700;font-size:15px;">🎤 ${e.hora}</span></div>`:''}
+    </div>`:''}
     ${e.ticketeras?`<div style="margin-bottom:14px;font-size:14px;">🎟 Ticketeras: <b>${e.ticketeras}</b></div>`:''}
     <div class="form-section-title" style="margin-top:12px;">Zonas de Acceso</div>
     ${zonas}
     <div style="margin:12px 0;padding:10px 14px;background:var(--accent-light);border-radius:var(--radius);font-family:var(--font-condensed);font-size:13px;color:var(--text2);border:1px solid var(--accent-light2);">
       TOTAL MÓVILES: <span style="color:var(--accent2);font-size:18px;font-weight:700;">${e.total_moviles||0}</span>
     </div>
-    <div class="form-section-title">Trabajadores</div><div>${workers}</div>`;
+    <div class="form-section-title">Trabajadores</div><div>${workers}</div>
+    ${e.observaciones?`
+    <div class="form-section-title" style="margin-top:16px;">📝 Observaciones</div>
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;font-size:14px;color:var(--text);line-height:1.6;white-space:pre-wrap;">${e.observaciones}</div>
+    `:''}
+    `;
   const actions=document.getElementById('modal-ev-actions'); actions.innerHTML='';
   if(isAdmin){const b=document.createElement('button');b.className='btn btn-danger';b.textContent='🗑 Eliminar';b.onclick=()=>deleteEvent(id);actions.appendChild(b);}
   openModal('modal-evento');
@@ -809,13 +828,24 @@ async function saveUser(){
   if(editingUserId){
     const {error}=await db.from('profiles').update({nombre,rol}).eq('id',editingUserId);
     if(error){document.getElementById('user-modal-error').textContent=error.message;return;}
-    toast('Usuario actualizado');
+    toast('✅ Usuario actualizado');
   }else{
     if(!email||!pass){document.getElementById('user-modal-error').textContent='Email y contraseña obligatorios';return;}
-    const {data,error}=await db.auth.signUp({email,password:pass});
+    if(pass.length<6){document.getElementById('user-modal-error').textContent='La contraseña debe tener mínimo 6 caracteres';return;}
+    // Crear usuario con signUp y auto-confirmar via perfil
+    const {data,error}=await db.auth.signUp({
+      email, password:pass,
+      options:{ data:{ nombre, rol } }
+    });
     if(error){document.getElementById('user-modal-error').textContent=error.message;return;}
-    if(data.user) await db.from('profiles').upsert({id:data.user.id,nombre,email,rol});
-    toast('Usuario creado');
+    if(data.user){
+      // Insertar perfil inmediatamente aunque el email no esté confirmado
+      const {error:pe}=await db.from('profiles').upsert({id:data.user.id,nombre,email,rol},{onConflict:'id'});
+      if(pe){document.getElementById('user-modal-error').textContent='Usuario creado pero error en perfil: '+pe.message;return;}
+      toast('✅ Usuario creado. Debe confirmar su email para acceder.');
+    } else {
+      document.getElementById('user-modal-error').textContent='No se pudo crear el usuario. Inténtalo de nuevo.';return;
+    }
   }
   await loadAll(); closeModal('modal-usuario'); renderUsers();
 }
@@ -954,20 +984,124 @@ async function deleteNomina(id,path){
 
 // REPORT
 function generateReport(){
-  const from=document.getElementById('send-from').value, to=document.getElementById('send-to').value;
+  const from=document.getElementById('send-from').value;
+  const to=document.getElementById('send-to').value;
   if(!from||!to){toast('Selecciona rango de fechas','error');return;}
-  const events=allEvents.filter(e=>e.fecha>=from&&e.fecha<=to);
+  if(from>to){toast('La fecha de inicio debe ser anterior a la final','error');return;}
+
+  const events=allEvents
+    .filter(e=>e.fecha>=from&&e.fecha<=to)
+    .sort((a,b)=>a.fecha.localeCompare(b.fecha));
+
   const output=document.getElementById('report-output');
-  if(!events.length){output.innerHTML='<div style="color:var(--text2);font-size:14px;padding:20px 0;">Sin eventos en el rango.</div>';return;}
-  let html=`<div style="margin-bottom:16px;font-family:var(--font-condensed);font-size:13px;color:var(--text2);letter-spacing:1px;">INFORME: ${from} → ${to} · ${events.length} eventos</div>`;
-  html+=events.map(e=>`
-    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:14px 18px;margin-bottom:8px;">
-      <div style="font-weight:700;margin-bottom:4px;">${e.nombre} <span style="color:var(--accent2);font-size:13px;">${formatDate(e.fecha)}</span></div>
-      <div style="font-size:13px;color:var(--text2);">📍 ${e.recinto}, ${e.ciudad}${e.hora?' · 🕐 '+e.hora:''}</div>
-      <div style="font-size:13px;color:var(--text2);">📱 ${e.total_moviles||0} móviles · 👤 ${(e.trabajadores||[]).map(t=>t.nombre).join(', ')||'Sin asignar'}</div>
-    </div>`).join('');
-  html+=`<button class="btn btn-primary" onclick="window.print()" style="margin-top:12px;">🖨 Imprimir / Exportar</button>`;
+  if(!events.length){
+    output.innerHTML='<div style="color:var(--text2);font-size:14px;padding:20px 0;text-align:center;">⚠️ No hay eventos en el rango seleccionado.</div>';
+    return;
+  }
+
+  const fFrom=formatDate(from), fTo=formatDate(to);
+
+  let html=`
+  <div id="informe-imprimible">
+    <style>
+      @media print {
+        body * { visibility: hidden; }
+        #informe-imprimible, #informe-imprimible * { visibility: visible; }
+        #informe-imprimible { position: fixed; top:0; left:0; width:100%; padding:20px; }
+        .no-print { display:none !important; }
+        .evento-informe { page-break-inside: avoid; }
+      }
+    </style>
+
+    <!-- CABECERA DEL INFORME -->
+    <div style="border:2px solid var(--accent);border-radius:12px;padding:20px 24px;margin-bottom:24px;background:var(--accent-light);">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+        <div>
+          <div style="font-family:var(--font-condensed);font-size:22px;font-weight:700;letter-spacing:2px;color:var(--accent2);">INFORME DE EVENTOS — D1N1</div>
+          <div style="font-size:13px;color:var(--text2);margin-top:4px;">Período: <b>${fFrom}</b> → <b>${fTo}</b> &nbsp;·&nbsp; <b>${events.length}</b> evento${events.length!==1?'s':''}</div>
+        </div>
+        <div style="font-size:12px;color:var(--text2);">Generado el ${new Date().toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric'})}</div>
+      </div>
+    </div>
+
+    <!-- EVENTOS -->
+    ${events.map((e,i)=>{
+      const zonas=(e.zonas||[]);
+      const trabajadores=(e.trabajadores||[]);
+      return `
+      <div class="evento-informe" style="background:var(--surface);border:1.5px solid var(--border);border-radius:12px;margin-bottom:20px;overflow:hidden;box-shadow:var(--shadow);">
+
+        <!-- Header evento -->
+        <div style="background:linear-gradient(135deg,var(--accent),var(--accent2));padding:14px 20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+          <div>
+            <div style="font-family:var(--font-condensed);font-size:20px;font-weight:700;color:#fff;letter-spacing:1px;">${e.nombre}</div>
+            <div style="font-size:13px;color:rgba(255,255,255,0.85);">📍 ${e.recinto} · ${e.ciudad}</div>
+          </div>
+          <div style="background:rgba(255,255,255,0.2);border-radius:8px;padding:8px 14px;text-align:center;">
+            <div style="font-family:var(--font-condensed);font-size:20px;font-weight:700;color:#fff;">${formatDate(e.fecha)}</div>
+          </div>
+        </div>
+
+        <div style="padding:16px 20px;">
+
+          <!-- Horarios -->
+          ${e.hora_reunion||e.hora_apertura||e.hora?`
+          <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px;padding:12px 16px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);">
+            ${e.hora_reunion?`<div style="text-align:center;"><div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text2);margin-bottom:2px;">🤝 Reunión</div><div style="font-weight:700;font-size:16px;">${e.hora_reunion}</div></div>`:''}
+            ${e.hora_apertura?`<div style="text-align:center;"><div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text2);margin-bottom:2px;">🚪 Apertura</div><div style="font-weight:700;font-size:16px;">${e.hora_apertura}</div></div>`:''}
+            ${e.hora?`<div style="text-align:center;"><div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text2);margin-bottom:2px;">🎤 Inicio</div><div style="font-weight:700;font-size:16px;">${e.hora}</div></div>`:''}
+          </div>`:''
+          }
+
+          ${e.ticketeras?`<div style="margin-bottom:12px;font-size:13px;">🎟 <b>Ticketeras:</b> ${e.ticketeras}</div>`:''}
+
+          <!-- Zonas de acceso -->
+          ${zonas.length?`
+          <div style="margin-bottom:14px;">
+            <div style="font-family:var(--font-condensed);font-size:11px;letter-spacing:2px;color:var(--accent2);text-transform:uppercase;font-weight:700;margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid var(--accent-light);">Zonas de Acceso</div>
+            ${zonas.map(z=>`
+              <div style="display:flex;align-items:center;gap:12px;padding:7px 10px;background:var(--surface2);border-radius:6px;margin-bottom:4px;border:1px solid var(--border);">
+                <div style="font-weight:700;min-width:100px;">${z.nombre}</div>
+                <div style="color:var(--text2);flex:1;font-size:13px;">${z.desc}</div>
+                <div style="color:var(--accent2);font-weight:700;font-size:13px;white-space:nowrap;">📱 ${z.moviles} móviles</div>
+              </div>`).join('')}
+            <div style="margin-top:8px;padding:8px 12px;background:var(--accent-light);border-radius:6px;font-family:var(--font-condensed);font-size:13px;color:var(--text2);border:1px solid var(--accent-light2);">
+              TOTAL MÓVILES NECESARIOS: <span style="color:var(--accent2);font-size:16px;font-weight:700;">${e.total_moviles||0}</span>
+            </div>
+          </div>`:''
+          }
+
+          <!-- Trabajadores -->
+          ${trabajadores.length?`
+          <div style="margin-bottom:${e.observaciones?'14px':'0'};">
+            <div style="font-family:var(--font-condensed);font-size:11px;letter-spacing:2px;color:var(--accent2);text-transform:uppercase;font-weight:700;margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid var(--accent-light);">Equipo Asignado</div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;">
+              ${trabajadores.map(t=>`<span style="background:var(--accent-light);border:1px solid var(--accent-light2);border-radius:20px;padding:4px 12px;font-size:13px;color:var(--accent2);font-weight:600;">👤 ${t.nombre}</span>`).join('')}
+            </div>
+          </div>`:''
+          }
+
+          <!-- Observaciones -->
+          ${e.observaciones?`
+          <div>
+            <div style="font-family:var(--font-condensed);font-size:11px;letter-spacing:2px;color:var(--accent2);text-transform:uppercase;font-weight:700;margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid var(--accent-light);">📝 Observaciones</div>
+            <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:12px 14px;font-size:13px;color:var(--text);line-height:1.7;white-space:pre-wrap;">${e.observaciones}</div>
+          </div>`:''}
+
+        </div>
+      </div>`;
+    }).join('')}
+
+    <!-- BOTONES -->
+    <div class="no-print" style="display:flex;gap:12px;margin-top:8px;flex-wrap:wrap;">
+      <button class="btn btn-primary" onclick="window.print()" style="flex:1;justify-content:center;">🖨️ Imprimir / Guardar PDF</button>
+      <button class="btn btn-secondary" onclick="document.getElementById('report-output').innerHTML=''" style="flex:1;justify-content:center;">✕ Limpiar</button>
+    </div>
+  </div>`;
+
   output.innerHTML=html;
+  // Scroll hasta el informe
+  output.scrollIntoView({behavior:'smooth', block:'start'});
 }
 
 // HELPERS
