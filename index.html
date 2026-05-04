@@ -325,6 +325,10 @@
       <label>Contraseña</label>
       <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password">
     </div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
+      <input type="checkbox" id="remember-me" style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer;">
+      <label for="remember-me" style="font-size:13px;color:var(--text2);cursor:pointer;user-select:none;">Recordar mi usuario</label>
+    </div>
     <button class="btn btn-primary" onclick="doLogin()">Entrar</button>
     <div class="error-msg" id="login-error"></div>
   </div>
@@ -603,14 +607,31 @@ async function checkSession(){
   if(session){currentUser=session.user; await loadProfile(); showApp();}
   else showLogin();
 }
-function showLogin(){document.getElementById('login-screen').classList.add('active'); document.getElementById('app').classList.remove('active');}
+function showLogin(){
+  document.getElementById('login-screen').classList.add('active');
+  document.getElementById('app').classList.remove('active');
+  // Cargar email recordado si existe
+  const savedEmail = localStorage.getItem('d1n1_remember_email');
+  if(savedEmail){
+    document.getElementById('login-email').value = savedEmail;
+    document.getElementById('remember-me').checked = true;
+    document.getElementById('login-pass').focus();
+  }
+}
 async function doLogin(){
   const email=document.getElementById('login-email').value.trim();
   const pass=document.getElementById('login-pass').value;
+  const remember=document.getElementById('remember-me').checked;
   document.getElementById('login-error').textContent='';
   if(!email||!pass){document.getElementById('login-error').textContent='Introduce email y contraseña';return;}
   const {data,error}=await db.auth.signInWithPassword({email,password:pass});
   if(error){document.getElementById('login-error').textContent=error.message;return;}
+  // Guardar o borrar email según preferencia
+  if(remember){
+    localStorage.setItem('d1n1_remember_email', email);
+  } else {
+    localStorage.removeItem('d1n1_remember_email');
+  }
   currentUser=data.user; await loadProfile(); showApp();
 }
 async function doLogout(){
