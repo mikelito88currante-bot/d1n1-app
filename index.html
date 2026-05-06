@@ -419,13 +419,32 @@
               </div>
             </div>
 
+
             <div id="zonas-list"></div>
-            <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;">
-              <input type="text" id="zona-nombre" placeholder="Zona (ej: PISTA)" style="flex:1;background:var(--surface2);border:1.5px solid var(--border);color:var(--text);padding:10px 12px;border-radius:var(--radius);font-family:var(--font-body);font-size:14px;outline:none;min-width:120px;">
-              <input type="text" id="zona-desc" placeholder="Descripción (ej: DESCARGAR PISTA)" style="flex:2;background:var(--surface2);border:1.5px solid var(--border);color:var(--text);padding:10px 12px;border-radius:var(--radius);font-family:var(--font-body);font-size:14px;outline:none;min-width:180px;">
-              <input type="number" id="zona-moviles" placeholder="Móviles" min="1" style="width:90px;background:var(--surface2);border:1.5px solid var(--border);color:var(--text);padding:10px 12px;border-radius:var(--radius);font-family:var(--font-body);font-size:14px;outline:none;">
-              <button class="btn btn-secondary" onclick="addZona()">+ Zona</button>
+
+            <!-- INPUT AÑADIR ZONA con autocompletado -->
+            <div style="background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius);padding:12px;margin-top:12px;">
+              <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:10px;">➕ Añadir zona</div>
+              <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start;">
+                <div style="flex:1;min-width:120px;position:relative;">
+                  <input type="text" id="zona-nombre" placeholder="Nombre zona (ej: PISTA)"
+                    oninput="buscarZonaDefault(this.value)"
+                    onblur="setTimeout(()=>{const s=document.getElementById('zona-nombre-sug');if(s)s.style.display='none'},200)"
+                    style="width:100%;background:#fff;border:1.5px solid var(--border);color:var(--text);padding:10px 12px;border-radius:var(--radius);font-family:var(--font-body);font-size:14px;outline:none;">
+                  <div id="zona-nombre-sug" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1.5px solid var(--accent);border-radius:0 0 8px 8px;z-index:100;box-shadow:var(--shadow-lg);max-height:180px;overflow-y:auto;"></div>
+                </div>
+                <div style="flex:2;min-width:180px;">
+                  <input type="text" id="zona-desc" placeholder="Descripción (ej: DESCARGAR PISTA)"
+                    style="width:100%;background:#fff;border:1.5px solid var(--border);color:var(--text);padding:10px 12px;border-radius:var(--radius);font-family:var(--font-body);font-size:14px;outline:none;">
+                </div>
+                <div style="width:90px;">
+                  <input type="number" id="zona-moviles" placeholder="Móviles" min="0"
+                    style="width:100%;background:#fff;border:1.5px solid var(--border);color:var(--text);padding:10px 12px;border-radius:var(--radius);font-family:var(--font-body);font-size:14px;outline:none;text-align:center;">
+                </div>
+                <button class="btn btn-primary btn-sm" onclick="addZona()" style="height:42px;align-self:flex-start;margin-top:0;">+ Añadir</button>
+              </div>
             </div>
+
             <div style="margin-top:12px;padding:10px 14px;background:var(--accent-light);border-radius:var(--radius);font-family:var(--font-condensed);font-size:13px;color:var(--text2);border:1px solid var(--accent-light2);">
               TOTAL MÓVILES: <span id="total-moviles" style="color:var(--accent2);font-size:18px;font-weight:700;">0</span>
             </div>
@@ -762,15 +781,99 @@ function addZona(){
 }
 function renderZonas(){
   const el=document.getElementById('zonas-list');
-  if(!eventZonas.length){el.innerHTML='<div style="color:var(--text2);font-size:13px;padding:8px 0;">No hay zonas añadidas.</div>';updateTotalMoviles();return;}
+  if(!eventZonas.length){
+    el.innerHTML='<div style="color:var(--text2);font-size:13px;padding:8px 0;">No hay zonas añadidas.</div>';
+    updateTotalMoviles(); return;
+  }
   el.innerHTML=eventZonas.map((z,i)=>`
-    <div class="access-zone">
-      <div class="zone-name">${z.nombre}</div>
-      <div class="zone-desc">${z.desc}</div>
-      <div class="zone-count">📱 ${z.moviles} móviles</div>
-      <button class="btn-icon" onclick="removeZona(${i})" title="Eliminar">✕</button>
+    <div class="access-zone" id="zona-row-${i}" style="align-items:center;">
+
+      <!-- MODO VISTA -->
+      <div id="zona-view-${i}" style="display:flex;align-items:center;gap:10px;width:100%;">
+        <div class="zone-name" style="min-width:100px;">${z.nombre}</div>
+        <div class="zone-desc" style="flex:1;">${z.desc||'-'}</div>
+        <div class="zone-count">📱 ${z.moviles} móviles</div>
+        <button class="btn-icon" onclick="iniciarEditZona(${i})" title="Editar" style="color:var(--accent2);">✏️</button>
+        <button class="btn-icon" onclick="removeZona(${i})" title="Eliminar" style="color:var(--red);">🗑</button>
+      </div>
+
+      <!-- MODO EDICIÓN (oculto por defecto) -->
+      <div id="zona-edit-${i}" style="display:none;width:100%;gap:8px;flex-wrap:wrap;align-items:center;">
+        <input id="zona-edit-nombre-${i}" type="text" value="${z.nombre}"
+          style="flex:1;min-width:100px;background:#fff;border:1.5px solid var(--accent);color:var(--text);padding:7px 10px;border-radius:var(--radius);font-family:var(--font-body);font-size:13px;outline:none;">
+        <input id="zona-edit-desc-${i}" type="text" value="${z.desc||''}"
+          style="flex:2;min-width:160px;background:#fff;border:1.5px solid var(--accent);color:var(--text);padding:7px 10px;border-radius:var(--radius);font-family:var(--font-body);font-size:13px;outline:none;">
+        <input id="zona-edit-mov-${i}" type="number" value="${z.moviles}" min="0"
+          style="width:80px;background:#fff;border:1.5px solid var(--accent);color:var(--text);padding:7px 10px;border-radius:var(--radius);font-family:var(--font-body);font-size:13px;outline:none;text-align:center;">
+        <button class="btn btn-success btn-sm" onclick="guardarEditZona(${i})">✅</button>
+        <button class="btn btn-secondary btn-sm" onclick="cancelarEditZona(${i})">✕</button>
+      </div>
+
     </div>`).join('');
   updateTotalMoviles();
+}
+
+function iniciarEditZona(i){
+  document.getElementById(`zona-view-${i}`).style.display='none';
+  const editEl=document.getElementById(`zona-edit-${i}`);
+  editEl.style.display='flex';
+  document.getElementById(`zona-edit-nombre-${i}`).focus();
+}
+
+function cancelarEditZona(i){
+  document.getElementById(`zona-view-${i}`).style.display='flex';
+  document.getElementById(`zona-edit-${i}`).style.display='none';
+}
+
+function guardarEditZona(i){
+  const nombre=document.getElementById(`zona-edit-nombre-${i}`).value.trim();
+  const desc=document.getElementById(`zona-edit-desc-${i}`).value.trim();
+  const moviles=parseInt(document.getElementById(`zona-edit-mov-${i}`).value)||0;
+  if(!nombre){toast('El nombre de zona no puede estar vacío','error');return;}
+  eventZonas[i]={nombre,desc,moviles};
+  renderZonas();
+  toast('✅ Zona actualizada');
+}
+
+// AUTOCOMPLETADO DE ZONAS POR NOMBRE
+function buscarZonaDefault(valor){
+  const sug=document.getElementById('zona-nombre-sug');
+  if(!valor||valor.length<1){sug.style.display='none';return;}
+
+  // Recopilar todas las zonas únicas usadas en todos los eventos, filtradas por lo que escribe
+  const zonasMap={};
+  allEvents.forEach(ev=>{
+    (ev.zonas||[]).forEach(z=>{
+      const key=z.nombre.toUpperCase();
+      if(key.includes(valor.toUpperCase())){
+        // Guardar la más reciente (mayor fecha del evento)
+        if(!zonasMap[key]||ev.fecha>zonasMap[key].fecha){
+          zonasMap[key]={nombre:z.nombre, desc:z.desc, moviles:z.moviles, fecha:ev.fecha};
+        }
+      }
+    });
+  });
+
+  const resultados=Object.values(zonasMap).slice(0,6);
+  if(!resultados.length){sug.style.display='none';return;}
+
+  sug.innerHTML=resultados.map(z=>`
+    <div onclick="seleccionarZonaDefault('${z.nombre.replace(/'/g,"\\'")}','${(z.desc||'').replace(/'/g,"\\'")}',${z.moviles})"
+      style="padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border);transition:background 0.1s;"
+      onmouseover="this.style.background='#fff9ee'" onmouseout="this.style.background='#fff'">
+      <div style="font-weight:700;font-size:13px;">${z.nombre}</div>
+      <div style="font-size:11px;color:var(--text2);">${z.desc||''} &nbsp;·&nbsp; <b style="color:var(--accent2);">📱 ${z.moviles} móviles</b></div>
+    </div>`).join('');
+  sug.style.display='block';
+}
+
+function seleccionarZonaDefault(nombre, desc, moviles){
+  document.getElementById('zona-nombre').value=nombre;
+  document.getElementById('zona-desc').value=desc;
+  document.getElementById('zona-moviles').value=moviles;
+  document.getElementById('zona-nombre-sug').style.display='none';
+  document.getElementById('zona-moviles').focus();
+  toast(`📋 Zona "${nombre}" cargada con sus valores anteriores`);
 }
 function removeZona(i){eventZonas.splice(i,1);renderZonas();}
 function updateTotalMoviles(){document.getElementById('total-moviles').textContent=eventZonas.reduce((s,z)=>s+z.moviles,0);}
