@@ -137,19 +137,22 @@
   .badge-revisor { background: rgba(29,168,90,0.1); color: var(--green); border: 1.5px solid var(--green); }
 
   /* ── HAMBURGER ── */
-  .btn-hamburger {
-    background: none; border: none; cursor: pointer; padding: 8px 6px;
-    display: flex; flex-direction: column; gap: 5px; border-radius: 6px;
+  /* HAMBURGER - visible en móvil, oculto en desktop */
+  #btn-hamburger {
+    background: none !important; border: 1px solid var(--border) !important;
+    cursor: pointer; padding: 8px 10px;
+    display: flex !important; flex-direction: column; gap: 5px; border-radius: 6px;
     transition: background 0.15s; flex-shrink: 0;
+    width: 40px; height: 40px; align-items: center; justify-content: center;
   }
-  .btn-hamburger:hover { background: var(--surface2); }
-  .btn-hamburger span {
-    display: block; width: 22px; height: 2.5px; background: var(--text);
+  #btn-hamburger:hover { background: var(--surface2) !important; }
+  #btn-hamburger span {
+    display: block !important; width: 20px; height: 2px; background: #333;
     border-radius: 2px; transition: all 0.3s;
   }
-  .btn-hamburger.open span:nth-child(1) { transform: translateY(7.5px) rotate(45deg); }
-  .btn-hamburger.open span:nth-child(2) { opacity: 0; transform: scaleX(0); }
-  .btn-hamburger.open span:nth-child(3) { transform: translateY(-7.5px) rotate(-45deg); }
+  #btn-hamburger.open span:nth-child(1) { transform: translateY(6px) rotate(45deg); }
+  #btn-hamburger.open span:nth-child(2) { opacity: 0; }
+  #btn-hamburger.open span:nth-child(3) { transform: translateY(-6px) rotate(-45deg); }
 
   /* ── SIDEBAR OVERLAY ── */
   .sidebar-overlay {
@@ -159,7 +162,7 @@
   .sidebar-overlay.open { display: block; }
 
   /* ── MAIN LAYOUT ── */
-  .main-layout { display: flex; flex: 1; overflow: hidden; }
+  .main-layout { display: flex; flex: 1; }
 
   /* ── SIDEBAR ── */
   aside {
@@ -172,9 +175,15 @@
   }
   aside.open { transform: translateX(0); }
   @media (min-width: 900px) {
-    aside { position: sticky; height: calc(100vh - 60px); transform: translateX(0) !important; box-shadow: none; width: 220px; }
+    aside {
+      position: sticky !important; top: 60px !important;
+      height: calc(100vh - 60px) !important;
+      transform: translateX(0) !important;
+      box-shadow: none !important; width: 220px !important;
+      flex-shrink: 0 !important;
+    }
     .sidebar-overlay { display: none !important; }
-    .btn-hamburger { display: none !important; }
+    #btn-hamburger { display: none !important; }
     .header-user { display: block !important; }
   }
   .nav-section-title {
@@ -398,9 +407,9 @@
       <button class="btn btn-secondary btn-sm" onclick="doLogout()">Salir</button>
     </div>
   </header>
-  <div class="main-layout">
-    <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
+  <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
   <aside id="sidebar"></aside>
+  <div class="main-layout">
     <main id="main-content">
 
       <!-- INICIO -->
