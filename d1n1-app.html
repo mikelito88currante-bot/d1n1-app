@@ -345,6 +345,21 @@ td { padding:11px 12px; border-bottom:1px solid var(--border); }
 .empty { text-align:center; padding:40px 20px; color:var(--text2); }
 .empty-icon { font-size:40px; margin-bottom:10px; }
 .send-info-row { display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap; }
+
+  @media print {
+    #sidebar, header, #install-banner, #btn-hamburger, #sidebar-overlay,
+    .btn, .no-print, .filter-bar, .page-header button { display: none !important; }
+    body { background: white !important; }
+    main { padding: 0 !important; }
+    .page { display: block !important; }
+    .page:not(.active) { display: none !important; }
+    #informe-imprimible { display: block !important; }
+    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
+    #tabla-informe td { page-break-inside: avoid; border: 1px solid #ccc !important; }
+    #tabla-informe { width: 100% !important; }
+    @page { size: landscape; margin: 8mm; }
+  }
+
 </style>
 </head>
 <body>
@@ -1629,28 +1644,6 @@ function closeModal(id){document.getElementById(id).classList.remove('open');}
 document.querySelectorAll('.modal-overlay').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
 document.getElementById('login-pass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
 
-
-// ── HAMBURGER ────────────────────────────────────────────
-function toggleSidebar(){
-  const aside = document.getElementById('sidebar');
-  const overlay = document.getElementById('sidebar-overlay');
-  const btn = document.getElementById('btn-hamburger');
-  const isOpen = aside.classList.contains('open');
-  if(isOpen){
-    aside.classList.remove('open');
-    overlay.classList.remove('open');
-    btn.classList.remove('open');
-  } else {
-    aside.classList.add('open');
-    overlay.classList.add('open');
-    btn.classList.add('open');
-  }
-}
-function closeSidebar(){
-  document.getElementById('sidebar').classList.remove('open');
-  document.getElementById('sidebar-overlay').classList.remove('open');
-  document.getElementById('btn-hamburger').classList.remove('open');
-}
 
 // ── SERVICE WORKER ───────────────────────────────────────
 if('serviceWorker' in navigator){
