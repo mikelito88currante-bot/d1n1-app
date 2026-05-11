@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>D1N1 v3.0 - Control de Accesos</title>
+<title>D1N1 v4 - Control de Accesos</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#c9922a">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -643,6 +643,10 @@ td { padding:11px 12px; border-bottom:1px solid var(--border); }
   </div>
 </div>
 
+<!-- DEBUG VERSION BAR -->
+<div id="ver-bar" style="position:fixed;bottom:0;left:0;right:0;background:#10b981;color:#fff;text-align:center;font-size:11px;padding:3px;z-index:99999;font-weight:700;">
+  ✅ D1N1 v4.0 CARGADA CORRECTAMENTE — <a href="#" onclick="document.getElementById('ver-bar').remove();return false;" style="color:#fff;text-decoration:underline;">Cerrar</a>
+</div>
 <!-- INSTALL BANNER -->
 <div id="install-banner">
   <div class="ib-left">
@@ -1492,15 +1496,16 @@ function generateReport(){
     </td>`;
   }
 
-  const colsHTML=fechas.map((f,i)=>columna(f,i)).join('');
   const fFrom=formatDate(from), fTo=formatDate(to);
+  const colsHTML=fechas.map((f,i)=>columna(f,i)).join('');
 
+  const nEvents=events.length;
   output.innerHTML=`
     <div id="informe-wrap" style="min-width:${totalW}px;">
       <div id="informe-contenido">
         <div style="background:linear-gradient(135deg,#c9922a,#a87520);color:#fff;text-align:center;padding:8px;border-radius:6px;margin-bottom:8px;">
           <div style="font-size:14px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">D1N1 — Control de Accesos y Eventos</div>
-          <div style="font-size:10px;opacity:0.9;margin-top:2px;">${fFrom} AL ${fTo} · ${events.length} evento${events.length!==1?'s':''} · ${new Date().toLocaleDateString('es-ES')}</div>
+          <div style="font-size:10px;opacity:0.9;margin-top:2px;">${fFrom} AL ${fTo} · ${nEvents} evento${nEvents!==1?'s':''} · ${new Date().toLocaleDateString('es-ES')}</div>
         </div>
         <table style="border-collapse:collapse;table-layout:fixed;width:${totalW}px;">
           <tr>${colsHTML}</tr>
@@ -1640,13 +1645,14 @@ function imprimirApaisado(){
 
   const fFrom=formatDate(from), fTo=formatDate(to);
 
+  const nEvents=events.length;
   output.innerHTML=`
     <div id="informe-wrap">
       <div id="informe-contenido">
         <!-- CABECERA -->
         <div style="background:linear-gradient(135deg,#c9922a,#a87520);color:#fff;text-align:center;padding:8px 12px;border-radius:6px;margin-bottom:8px;">
           <div style="font-size:16px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">D1N1 — Control de Accesos y Eventos</div>
-          <div style="font-size:10px;opacity:0.9;margin-top:2px;">${fFrom} AL ${fTo} · ${events.length} evento${events.length!==1?'s':''} · Generado el ${new Date().toLocaleDateString('es-ES')}</div>
+          <div style="font-size:10px;opacity:0.9;margin-top:2px;">${fFrom} AL ${fTo} · ${nEvents} evento${nEvents!==1?'s':''} · Generado el ${new Date().toLocaleDateString('es-ES')}</div>
         </div>
         <!-- TABLA PRINCIPAL -->
         <table id="tabla-informe" style="width:100%;border-collapse:collapse;table-layout:fixed;">
