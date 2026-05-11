@@ -633,9 +633,9 @@ td { padding:11px 12px; border-bottom:1px solid var(--border); }
           <div class="send-info-row">
             <div class="form-group" style="margin-bottom:0;"><label>Desde</label><input type="date" id="send-from"></div>
             <div class="form-group" style="margin-bottom:0;"><label>Hasta</label><input type="date" id="send-to"></div>
-            <button class="btn btn-primary" onclick="generateReport()" style="margin-top:20px;">📋 Generar Informe</button>
+            <button class="btn btn-primary" onclick="generateReport()" style="margin-top:20px;width:auto;">📋 Generar Informe</button>
           </div>
-          <div id="report-output" style="margin-top:24px;"></div>
+          <div id="report-output" style="margin-top:20px;overflow-x:auto;-webkit-overflow-scrolling:touch;"></div>
         </div>
       </div>
     
@@ -657,6 +657,59 @@ td { padding:11px 12px; border-bottom:1px solid var(--border); }
     <button class="btn-close-banner" onclick="cerrarBannerInstalar()">✕</button>
   </div>
 </div>
+
+<!-- MODAL DETALLE EVENTO -->
+<div class="modal-overlay" id="modal-evento">
+  <div class="modal" style="max-width:680px;">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-ev-title">-</div>
+      <button class="modal-close" onclick="closeModal('modal-evento')">✕</button>
+    </div>
+    <div id="modal-ev-content"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px;flex-wrap:wrap;" id="modal-ev-actions"></div>
+  </div>
+</div>
+
+<!-- MODAL DÍA CALENDARIO -->
+<div class="modal-overlay" id="modal-dia">
+  <div class="modal" style="max-width:560px;">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="modal-dia-title">-</div>
+        <div style="font-size:13px;color:var(--text2);margin-top:2px;" id="modal-dia-subtitle"></div>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-dia')">✕</button>
+    </div>
+    <div id="modal-dia-content"></div>
+  </div>
+</div>
+
+<!-- MODAL USUARIO -->
+<div class="modal-overlay" id="modal-usuario">
+  <div class="modal" style="max-width:460px;">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-user-title">Nuevo Usuario</div>
+      <button class="modal-close" onclick="closeModal('modal-usuario')">✕</button>
+    </div>
+    <div class="form-group"><label>Nombre completo *</label><input type="text" id="u-nombre" placeholder="Nombre Apellido"></div>
+    <div class="form-group"><label>Email *</label><input type="email" id="u-email" placeholder="correo@email.com"></div>
+    <div class="form-group" id="u-pass-group"><label>Contraseña *</label><input type="password" id="u-pass" placeholder="Mínimo 6 caracteres"></div>
+    <div class="form-group">
+      <label>Rol *</label>
+      <select id="u-rol">
+        <option value="worker">Trabajador</option>
+        <option value="revisor">Revisor</option>
+        <option value="admin">Admin</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px;">
+      <button class="btn btn-secondary" onclick="closeModal('modal-usuario')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveUser()" style="width:auto;">Guardar</button>
+    </div>
+    <div class="error-msg" id="user-modal-error"></div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script>
@@ -1362,7 +1415,7 @@ function generateReport(){
   const from=document.getElementById('send-from').value;
   const to=document.getElementById('send-to').value;
   if(!from||!to){toast('Selecciona rango de fechas','error');return;}
-  if(from>to){toast('La fecha de inicio debe ser anterior a la final','error');return;}
+  if(from>to){toast('La fecha de inicio debe ser anterior','error');return;}
 
   const events=allEvents
     .filter(e=>e.fecha>=from&&e.fecha<=to)
@@ -1370,12 +1423,141 @@ function generateReport(){
 
   const output=document.getElementById('report-output');
   if(!events.length){
-    output.innerHTML='<div style="color:var(--text2);font-size:14px;padding:20px 0;text-align:center;">⚠️ No hay eventos en el rango seleccionado.</div>';
+    output.innerHTML='<div style="color:var(--text2);text-align:center;padding:30px;">⚠️ No hay eventos en ese rango.</div>';
     return;
   }
 
-  const diasNombres=['DOMINGO','LUNES','MARTES','MIÉRCOLES','JUEVES','VIERNES','SÁBADO'];
-  const colHeaders=['#c9922a','#374151'];
+  const DIAS=['DOMINGO','LUNES','MARTES','MIÉRCOLES','JUEVES','VIERNES','SÁBADO'];
+  const COLORS=['#c9922a','#374151'];
+
+  // Agrupar por fecha
+  const porFecha={};
+  events.forEach(e=>{ if(!porFecha[e.fecha]) porFecha[e.fecha]=[]; porFecha[e.fecha].push(e); });
+  const fechas=Object.keys(porFecha).sort();
+  const N=fechas.length;
+
+  // Ancho fijo por columna — suficiente para leer bien
+  const COL_W=220;
+  const totalW=N*COL_W;
+
+  // Generar HTML de una columna completa
+  function columna(fecha, ci){
+    const evs=porFecha[fecha];
+    const hBg=COLORS[ci%2];
+    const dia=DIAS[new Date(fecha+'T12:00:00').getDay()];
+    const fmtFecha=formatDate(fecha);
+
+    const eventosHTML=evs.map(e=>{
+      const zonas=e.zonas||[];
+      const workers=e.trabajadores||[];
+      let rows='';
+      const tdL=`style="background:#f0f2f5;font-size:8px;font-weight:700;color:#555;text-transform:uppercase;padding:2px 4px;border:1px solid #ddd;white-space:nowrap;"`;
+      const tdR=`style="font-size:9px;padding:2px 4px;border:1px solid #ddd;"`;
+      const thD=`style="background:#1a1e2a;color:#fff;font-size:8px;font-weight:700;text-transform:uppercase;padding:2px 4px;border:1px solid #ddd;" colspan="2"`;
+
+      if(e.ticketeras) rows+=`<tr><td ${tdL}>TICKETERA</td><td ${tdR}><b>${e.ticketeras}</b></td></tr>`;
+      if(e.cliente)    rows+=`<tr><td ${tdL}>EMPRESA</td><td ${tdR}><b>${e.cliente}</b></td></tr>`;
+      if(e.hora_reunion) rows+=`<tr><td ${tdL}>CITACIÓN</td><td style="font-size:9px;padding:2px 4px;border:1px solid #ddd;color:#c9922a;font-weight:700;background:#fff9ee;"><b>${e.hora_reunion}</b></td></tr>`;
+      if(e.hora_apertura) rows+=`<tr><td ${tdL}>APERTURA</td><td style="font-size:9px;padding:2px 4px;border:1px solid #ddd;color:#c9922a;font-weight:700;background:#fff9ee;"><b>${e.hora_apertura}</b></td></tr>`;
+      if(e.hora) rows+=`<tr><td ${tdL}>INICIO</td><td style="font-size:9px;padding:2px 4px;border:1px solid #ddd;color:#c9922a;font-weight:700;background:#fff9ee;"><b>${e.hora}</b></td></tr>`;
+      if(zonas.length){
+        rows+=`<tr><td ${thD}>ACCESOS</td></tr>`;
+        zonas.forEach(z=>{ rows+=`<tr><td ${tdL}>${z.nombre}</td><td ${tdR}>${z.desc||''} <b style="color:#c9922a">${z.moviles} MOV</b></td></tr>`; });
+        rows+=`<tr><td ${tdL}>TOTAL MOV</td><td style="font-size:9px;padding:2px 4px;border:1px solid #ddd;font-weight:700;color:#c9922a;background:#fff9ee;"><b>${e.total_moviles||0}</b></td></tr>`;
+      }
+      if(workers.length){
+        rows+=`<tr><td ${thD}>RESPONSABLE</td></tr>`;
+        rows+=`<tr><td colspan="2" style="font-size:8px;padding:3px 4px;border:1px solid #ddd;font-weight:700;text-align:center;">${workers.map(t=>t.nombre).join(' · ')}</td></tr>`;
+      }
+      if(e.observaciones){
+        rows+=`<tr><td style="background:#78350f;color:#fff;font-size:8px;font-weight:700;text-transform:uppercase;padding:2px 4px;border:1px solid #ddd;" colspan="2">OBSERVACIONES</td></tr>`;
+        rows+=`<tr><td colspan="2" style="font-size:8px;padding:3px 4px;border:1px solid #ddd;white-space:pre-wrap;">${e.observaciones}</td></tr>`;
+      }
+
+      return `<table style="width:100%;border-collapse:collapse;border-top:2px solid ${hBg};">
+        <tr><td colspan="2" style="background:${hBg}20;padding:3px 5px;border-bottom:1px solid #ddd;">
+          <div style="font-size:9px;font-weight:700;color:${hBg};text-transform:uppercase;">${e.nombre}</div>
+          <div style="font-size:8px;color:#777;">${e.recinto} · ${e.ciudad}</div>
+        </td></tr>
+        ${rows}
+      </table>`;
+    }).join('<div style="height:3px;background:#e5e7eb;"></div>');
+
+    return `<td style="vertical-align:top;padding:0;border:1px solid #9ca3af;width:${COL_W}px;min-width:${COL_W}px;max-width:${COL_W}px;">
+      <div style="background:${hBg};color:#fff;text-align:center;padding:5px 4px;">
+        <div style="font-size:9px;font-weight:700;letter-spacing:1px;">${dia}</div>
+        <div style="font-size:12px;font-weight:700;">${fmtFecha}</div>
+      </div>
+      ${eventosHTML}
+    </td>`;
+  }
+
+  const colsHTML=fechas.map((f,i)=>columna(f,i)).join('');
+  const fFrom=formatDate(from), fTo=formatDate(to);
+
+  output.innerHTML=`
+    <div id="informe-wrap" style="min-width:${totalW}px;">
+      <div id="informe-contenido">
+        <div style="background:linear-gradient(135deg,#c9922a,#a87520);color:#fff;text-align:center;padding:8px;border-radius:6px;margin-bottom:8px;">
+          <div style="font-size:14px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">D1N1 — Control de Accesos y Eventos</div>
+          <div style="font-size:10px;opacity:0.9;margin-top:2px;">${fFrom} AL ${fTo} · ${events.length} evento${events.length!==1?'s':''} · ${new Date().toLocaleDateString('es-ES')}</div>
+        </div>
+        <table style="border-collapse:collapse;table-layout:fixed;width:${totalW}px;">
+          <tr>${colsHTML}</tr>
+        </table>
+      </div>
+    </div>
+    <div id="informe-btns" style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;min-width:0;">
+      <button class="btn btn-primary" onclick="imprimirApaisado()" style="flex:1;justify-content:center;">🖨️ Imprimir / Guardar PDF</button>
+      <button class="btn btn-secondary" onclick="document.getElementById('report-output').innerHTML=''" style="flex:1;justify-content:center;">✕ Limpiar</button>
+    </div>`;
+
+  output.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function imprimirApaisado(){
+  const contenido=document.getElementById('informe-contenido');
+  if(!contenido){window.print();return;}
+
+  const W=contenido.scrollWidth;
+  const H=contenido.scrollHeight;
+
+  // A4 en píxeles a 96dpi con 8mm márgenes
+  const A4L={w:1086,h:748}; // landscape
+  const A4P={w:748,h:1086}; // portrait
+
+  const scaleL=Math.min(A4L.w/W, A4L.h/H);
+  const scaleP=Math.min(A4P.w/W, A4P.h/H);
+  const useL=scaleL>=scaleP;
+  const scale=Math.min(1, useL?scaleL:scaleP);
+  const ori=useL?'landscape':'portrait';
+
+  let s=document.getElementById('_pscss_');
+  if(s)s.remove();
+  s=document.createElement('style');
+  s.id='_pscss_';
+  s.textContent=`
+    @media print {
+      @page{size:A4 ${ori};margin:8mm;}
+      body>*{visibility:hidden;}
+      #informe-wrap,#informe-contenido,#informe-contenido *{visibility:visible;}
+      #informe-wrap{
+        position:fixed;top:0;left:0;
+        overflow:visible!important;
+      }
+      #informe-btns{display:none!important;}
+      #informe-contenido{
+        transform:scale(${scale.toFixed(5)});
+        transform-origin:top left;
+        width:${W}px!important;
+      }
+      *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
+    }
+  `;
+  document.head.appendChild(s);
+  window.print();
+  setTimeout(()=>{const el=document.getElementById('_pscss_');if(el)el.remove();},3000);
+}
 
   // Agrupar por fecha
   const porFecha={};
@@ -1479,79 +1661,7 @@ function generateReport(){
     </div>`;
 
   output.scrollIntoView({behavior:'smooth',block:'start'});
-}
 
-function imprimirApaisado(){
-  const contenido=document.getElementById('informe-contenido');
-  if(!contenido){window.print();return;}
-
-  // Medir tamaño real del contenido
-  const W=contenido.scrollWidth;
-  const H=contenido.scrollHeight;
-
-  // Papel A4: landscape=297x210mm, portrait=210x297mm → a 96dpi
-  const A4L_W=1122, A4L_H=794; // landscape px (menos 10mm márgenes)
-  const A4P_W=794,  A4P_H=1122; // portrait px
-
-  // Elegir orientación que mejor se ajuste
-  let orientation, paperW, paperH;
-  const scaleL=Math.min(A4L_W/W, A4L_H/H);
-  const scaleP=Math.min(A4P_W/W, A4P_H/H);
-  if(scaleL>=scaleP){
-    orientation='landscape'; paperW=A4L_W; paperH=A4L_H;
-  } else {
-    orientation='portrait'; paperW=A4P_W; paperH=A4P_H;
-  }
-  const scale=Math.min(1, Math.min(paperW/W, paperH/H));
-
-  // Inyectar CSS de impresión con escala exacta
-  let s=document.getElementById('_pscss_');
-  if(s)s.remove();
-  s=document.createElement('style');
-  s.id='_pscss_';
-  s.textContent=`
-    @media print {
-      @page{size:A4 ${orientation};margin:8mm;}
-      body>*{display:none!important;}
-      #informe-wrap{display:block!important;position:fixed;top:0;left:0;width:100vw;}
-      #informe-btns{display:none!important;}
-      #informe-contenido{
-        transform:scale(${scale.toFixed(5)});
-        transform-origin:top left;
-        width:${W}px;
-      }
-      *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
-    }
-  `;
-  document.head.appendChild(s);
-  window.print();
-  setTimeout(()=>{const el=document.getElementById('_pscss_');if(el)el.remove();},3000);
-}
-
-// RECINTO AUTOCOMPLETE Y ZONAS ANTERIORES
-let zonasAnterioresCargadas = [];
-
-function buscarRecinto(valor) {
-  const sug = document.getElementById('recinto-sugerencias');
-  if (!valor || valor.length < 2) { sug.style.display = 'none'; ocultarAvisoRecinto(); return; }
-
-  // Obtener recintos únicos de eventos anteriores que coincidan
-  const recintos = [...new Set(
-    allEvents
-      .filter(e => e.recinto && e.recinto.toLowerCase().includes(valor.toLowerCase()))
-      .map(e => e.recinto)
-  )].slice(0, 6);
-
-  if (!recintos.length) { sug.style.display = 'none'; ocultarAvisoRecinto(); return; }
-
-  sug.innerHTML = recintos.map(r => `
-    <div onclick="seleccionarRecinto('${r.replace(/'/g,"\\'")}');"
-      style="padding:10px 14px;cursor:pointer;font-size:14px;border-bottom:1px solid var(--border);transition:background 0.1s;"
-      onmouseover="this.style.background='#fff9ee'" onmouseout="this.style.background='#fff'">
-      🏟️ ${r}
-    </div>`).join('');
-  sug.style.display = 'block';
-}
 
 function seleccionarRecinto(recinto) {
   document.getElementById('ev-recinto').value = recinto;
