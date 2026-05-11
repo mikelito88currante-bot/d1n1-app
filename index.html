@@ -152,10 +152,10 @@ header {
 
 /* ── SIDEBAR OVERLAY ── */
 #sidebar-overlay {
-  display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5);
-  z-index:300; backdrop-filter:blur(2px);
+  display:block; position:fixed; inset:0; background:rgba(0,0,0,0);
+  z-index:300; pointer-events:none; transition:background 0.3s;
 }
-#sidebar-overlay.open { display:block; }
+#sidebar-overlay.open { background:rgba(0,0,0,0.5); pointer-events:all; backdrop-filter:blur(2px); }
 @media(min-width:900px) { #sidebar-overlay { display:none !important; } }
 
 /* ── SIDEBAR ── */
@@ -346,24 +346,7 @@ td { padding:11px 12px; border-bottom:1px solid var(--border); }
 .empty-icon { font-size:40px; margin-bottom:10px; }
 .send-info-row { display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap; }
 
-  @media print {
-    @page { size: landscape; margin: 5mm; }
-    html, body { width: 100%; height: 100%; margin: 0; padding: 0; }
-    #sidebar, header, #install-banner, #btn-hamburger, #sidebar-overlay,
-    .no-print, .filter-bar, .page-header, #report-output > .no-print { display: none !important; }
-    body { background: white !important; }
-    main { padding: 0 !important; width: 100% !important; max-width: 100% !important; }
-    .main-layout { display: block !important; }
-    .page { display: none !important; }
-    #page-enviar-info { display: block !important; }
-    .card { box-shadow: none !important; border: none !important; padding: 0 !important; }
-    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
-    #informe-imprimible { display: block !important; width: 100% !important; }
-    #tabla-informe { width: 100% !important; table-layout: fixed !important; border-collapse: collapse !important; }
-    #tabla-informe > tr > td { page-break-inside: avoid !important; vertical-align: top !important; }
-    /* Auto-fit all content to page width */
-    #report-output { transform-origin: top left; }
-  }
+  /* Print CSS is handled dynamically by printReport() */
 
 </style>
 </head>
@@ -1419,150 +1402,153 @@ function generateReport(){
   const from=document.getElementById('send-from').value;
   const to=document.getElementById('send-to').value;
   if(!from||!to){toast('Selecciona rango de fechas','error');return;}
-  if(from>to){toast('La fecha de inicio debe ser anterior','error');return;}
+  if(from>to){toast('La fecha inicio debe ser anterior','error');return;}
 
-  const events=allEvents
+  const evts=allEvents
     .filter(e=>e.fecha>=from&&e.fecha<=to)
     .sort((a,b)=>a.fecha.localeCompare(b.fecha)||a.nombre.localeCompare(b.nombre));
 
   const output=document.getElementById('report-output');
-  if(!events.length){
-    output.innerHTML='<div style="color:var(--text2);text-align:center;padding:30px;">⚠️ No hay eventos en ese rango.</div>';
+  if(!evts.length){
+    output.innerHTML='<div style="color:var(--text2);text-align:center;padding:30px;">Sin eventos en ese rango.</div>';
     return;
   }
 
   const DIAS=['DOMINGO','LUNES','MARTES','MIÉRCOLES','JUEVES','VIERNES','SÁBADO'];
-  const COLORS=['#c9922a','#374151'];
+  const HCOLS=['#c9922a','#374151'];
 
   // Agrupar por fecha
-  const porFecha={};
-  events.forEach(e=>{ if(!porFecha[e.fecha]) porFecha[e.fecha]=[]; porFecha[e.fecha].push(e); });
-  const fechas=Object.keys(porFecha).sort();
-  const N=fechas.length;
+  const byDate={};
+  evts.forEach(e=>{ if(!byDate[e.fecha]) byDate[e.fecha]=[]; byDate[e.fecha].push(e); });
+  const dates=Object.keys(byDate).sort();
+  const N=dates.length;
 
-  // Ancho fijo por columna — suficiente para leer bien
-  const COL_W=220;
-  const totalW=N*COL_W;
+  // Generar HTML completo de cada columna-día
+  function buildCol(fecha, ci){
+    const evList=byDate[fecha];
+    const hc=HCOLS[ci%2];
+    const dn=DIAS[new Date(fecha+'T12:00:00').getDay()];
+    const fd=formatDate(fecha);
 
-  // Generar HTML de una columna completa
-  function columna(fecha, ci){
-    const evs=porFecha[fecha];
-    const hBg=COLORS[ci%2];
-    const dia=DIAS[new Date(fecha+'T12:00:00').getDay()];
-    const fmtFecha=formatDate(fecha);
+    // Estils inline para evitar problemas de clase
+    const tdLbl=`background:#eef0f3;font-size:8.5px;font-weight:700;color:#555;text-transform:uppercase;padding:2px 5px;border:1px solid #d1d5db;white-space:nowrap;vertical-align:top;`;
+    const tdVal=`font-size:9px;padding:2px 5px;border:1px solid #d1d5db;vertical-align:top;`;
+    const thDark=`background:#1f2937;color:#fff;font-size:8px;font-weight:700;text-transform:uppercase;padding:3px 5px;border:1px solid #d1d5db;`;
 
-    const eventosHTML=evs.map(e=>{
+    let evHtml='';
+    evList.forEach((e,ei)=>{
       const zonas=e.zonas||[];
       const workers=e.trabajadores||[];
       let rows='';
-      const tdL=`style="background:#f0f2f5;font-size:8px;font-weight:700;color:#555;text-transform:uppercase;padding:2px 4px;border:1px solid #ddd;white-space:nowrap;"`;
-      const tdR=`style="font-size:9px;padding:2px 4px;border:1px solid #ddd;"`;
-      const thD=`style="background:#1a1e2a;color:#fff;font-size:8px;font-weight:700;text-transform:uppercase;padding:2px 4px;border:1px solid #ddd;" colspan="2"`;
 
-      if(e.ticketeras) rows+=`<tr><td ${tdL}>TICKETERA</td><td ${tdR}><b>${e.ticketeras}</b></td></tr>`;
-      if(e.cliente)    rows+=`<tr><td ${tdL}>EMPRESA</td><td ${tdR}><b>${e.cliente}</b></td></tr>`;
-      if(e.hora_reunion) rows+=`<tr><td ${tdL}>CITACIÓN</td><td style="font-size:9px;padding:2px 4px;border:1px solid #ddd;color:#c9922a;font-weight:700;background:#fff9ee;"><b>${e.hora_reunion}</b></td></tr>`;
-      if(e.hora_apertura) rows+=`<tr><td ${tdL}>APERTURA</td><td style="font-size:9px;padding:2px 4px;border:1px solid #ddd;color:#c9922a;font-weight:700;background:#fff9ee;"><b>${e.hora_apertura}</b></td></tr>`;
-      if(e.hora) rows+=`<tr><td ${tdL}>INICIO</td><td style="font-size:9px;padding:2px 4px;border:1px solid #ddd;color:#c9922a;font-weight:700;background:#fff9ee;"><b>${e.hora}</b></td></tr>`;
+      if(e.ticketeras) rows+=`<tr><td style="${tdLbl}">TICKETERA</td><td style="${tdVal}"><b>${e.ticketeras}</b></td></tr>`;
+      if(e.cliente)    rows+=`<tr><td style="${tdLbl}">EMPRESA</td><td style="${tdVal}"><b>${e.cliente}</b></td></tr>`;
+      if(e.hora_reunion) rows+=`<tr><td style="${tdLbl}">CITACIÓN</td><td style="${tdVal}color:#c9922a;font-weight:700;background:#fef9ee;"><b>${e.hora_reunion}</b></td></tr>`;
+      if(e.hora_apertura) rows+=`<tr><td style="${tdLbl}">APERTURA</td><td style="${tdVal}color:#c9922a;font-weight:700;background:#fef9ee;"><b>${e.hora_apertura}</b></td></tr>`;
+      if(e.hora) rows+=`<tr><td style="${tdLbl}">INICIO</td><td style="${tdVal}color:#c9922a;font-weight:700;background:#fef9ee;"><b>${e.hora}</b></td></tr>`;
+
       if(zonas.length){
-        rows+=`<tr><td ${thD}>ACCESOS</td></tr>`;
-        zonas.forEach(z=>{ rows+=`<tr><td ${tdL}>${z.nombre}</td><td ${tdR}>${z.desc||''} <b style="color:#c9922a">${z.moviles} MOV</b></td></tr>`; });
-        rows+=`<tr><td ${tdL}>TOTAL MOV</td><td style="font-size:9px;padding:2px 4px;border:1px solid #ddd;font-weight:700;color:#c9922a;background:#fff9ee;"><b>${e.total_moviles||0}</b></td></tr>`;
+        rows+=`<tr><td colspan="2" style="${thDark}">ACCESOS</td></tr>`;
+        zonas.forEach(z=>{
+          rows+=`<tr><td style="${tdLbl}">${z.nombre}</td><td style="${tdVal}">${z.desc||''} <b style="color:#c9922a">${z.moviles} MOV</b></td></tr>`;
+        });
+        rows+=`<tr><td style="${tdLbl}">TOTAL MOV</td><td style="${tdVal}font-weight:700;color:#c9922a;background:#fef9ee;"><b>${e.total_moviles||0}</b></td></tr>`;
       }
       if(workers.length){
-        rows+=`<tr><td ${thD}>RESPONSABLE</td></tr>`;
-        rows+=`<tr><td colspan="2" style="font-size:8px;padding:3px 4px;border:1px solid #ddd;font-weight:700;text-align:center;">${workers.map(t=>t.nombre).join(' · ')}</td></tr>`;
+        rows+=`<tr><td colspan="2" style="${thDark}">RESPONSABLE</td></tr>`;
+        rows+=`<tr><td colspan="2" style="${tdVal}font-weight:700;text-align:center;">${workers.map(t=>t.nombre).join(' · ')}</td></tr>`;
       }
       if(e.observaciones){
-        rows+=`<tr><td style="background:#78350f;color:#fff;font-size:8px;font-weight:700;text-transform:uppercase;padding:2px 4px;border:1px solid #ddd;" colspan="2">OBSERVACIONES</td></tr>`;
-        rows+=`<tr><td colspan="2" style="font-size:8px;padding:3px 4px;border:1px solid #ddd;white-space:pre-wrap;">${e.observaciones}</td></tr>`;
+        rows+=`<tr><td colspan="2" style="background:#78350f;color:#fff;font-size:8px;font-weight:700;text-transform:uppercase;padding:2px 5px;border:1px solid #d1d5db;">OBSERVACIONES</td></tr>`;
+        rows+=`<tr><td colspan="2" style="${tdVal}font-size:8px;white-space:pre-wrap;">${e.observaciones}</td></tr>`;
       }
 
-      return `<table style="width:100%;border-collapse:collapse;border-top:2px solid ${hBg};">
-        <tr><td colspan="2" style="background:${hBg}20;padding:3px 5px;border-bottom:1px solid #ddd;">
-          <div style="font-size:9px;font-weight:700;color:${hBg};text-transform:uppercase;">${e.nombre}</div>
-          <div style="font-size:8px;color:#777;">${e.recinto} · ${e.ciudad}</div>
+      const sep=ei>0?`<tr><td colspan="2" style="height:3px;background:#d1d5db;padding:0;border:none;"></td></tr>`:'';
+      evHtml+=`${sep}
+        <tr><td colspan="2" style="background:${hc}18;padding:3px 5px;border-top:2px solid ${hc};border-bottom:1px solid #d1d5db;">
+          <div style="font-size:9.5px;font-weight:700;color:${hc};text-transform:uppercase;">${e.nombre}</div>
+          <div style="font-size:8px;color:#6b7280;">${e.recinto} · ${e.ciudad}</div>
         </td></tr>
-        ${rows}
-      </table>`;
-    }).join('<div style="height:3px;background:#e5e7eb;"></div>');
+        ${rows}`;
+    });
 
-    return `<td style="vertical-align:top;padding:0;border:1px solid #9ca3af;width:${COL_W}px;min-width:${COL_W}px;max-width:${COL_W}px;">
-      <div style="background:${hBg};color:#fff;text-align:center;padding:5px 4px;">
-        <div style="font-size:9px;font-weight:700;letter-spacing:1px;">${dia}</div>
-        <div style="font-size:12px;font-weight:700;">${fmtFecha}</div>
-      </div>
-      ${eventosHTML}
+    return `<td style="vertical-align:top;padding:0;border:2px solid #9ca3af;width:${(100/N).toFixed(3)}%;">
+      <table style="width:100%;border-collapse:collapse;table-layout:fixed;">
+        <tr><td colspan="2" style="background:${hc};color:#fff;text-align:center;padding:5px 4px;border-bottom:1px solid ${hc};">
+          <div style="font-size:9px;font-weight:700;letter-spacing:1px;">${dn}</div>
+          <div style="font-size:13px;font-weight:700;">${fd}</div>
+        </td></tr>
+        ${evHtml}
+      </table>
     </td>`;
   }
 
   const fFrom=formatDate(from), fTo=formatDate(to);
-  const colsHTML=fechas.map((f,i)=>columna(f,i)).join('');
+  const colsHTML=dates.map((f,i)=>buildCol(f,i)).join('');
 
-  const nEvents=events.length;
   output.innerHTML=`
-    <div id="informe-wrap" style="min-width:${totalW}px;">
-      <div id="informe-contenido">
-        <div style="background:linear-gradient(135deg,#c9922a,#a87520);color:#fff;text-align:center;padding:8px;border-radius:6px;margin-bottom:8px;">
-          <div style="font-size:14px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">D1N1 — Control de Accesos y Eventos</div>
-          <div style="font-size:10px;opacity:0.9;margin-top:2px;">${fFrom} AL ${fTo} · ${nEvents} evento${nEvents!==1?'s':''} · ${new Date().toLocaleDateString('es-ES')}</div>
+    <div id="rpt-outer" style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+      <div id="rpt-inner" style="min-width:${N*200}px;">
+        <div style="background:linear-gradient(135deg,#c9922a,#a87520);color:#fff;text-align:center;padding:8px 12px;border-radius:6px;margin-bottom:8px;">
+          <div style="font-size:15px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">D1N1 — Control de Accesos y Eventos</div>
+          <div style="font-size:10px;opacity:0.9;margin-top:2px;">${fFrom} AL ${fTo} · ${evts.length} evento${evts.length!==1?'s':''} · ${new Date().toLocaleDateString('es-ES')}</div>
         </div>
-        <table style="border-collapse:collapse;table-layout:fixed;width:${totalW}px;">
+        <table id="rpt-table" style="width:100%;border-collapse:collapse;table-layout:fixed;">
           <tr>${colsHTML}</tr>
         </table>
       </div>
     </div>
-    <div id="informe-btns" style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;min-width:0;">
-      <button class="btn btn-primary" onclick="imprimirApaisado()" style="flex:1;justify-content:center;">🖨️ Imprimir / Guardar PDF</button>
+    <div id="rpt-btns" style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;">
+      <button class="btn btn-primary" onclick="printReport()" style="flex:1;justify-content:center;">🖨️ Imprimir / Guardar PDF</button>
       <button class="btn btn-secondary" onclick="document.getElementById('report-output').innerHTML=''" style="flex:1;justify-content:center;">✕ Limpiar</button>
     </div>`;
 
   output.scrollIntoView({behavior:'smooth',block:'start'});
 }
 
-function imprimirApaisado(){
-  const contenido=document.getElementById('informe-contenido');
-  if(!contenido){window.print();return;}
+function printReport(){
+  const inner=document.getElementById('rpt-inner');
+  if(!inner){window.print();return;}
 
-  const W=contenido.scrollWidth;
-  const H=contenido.scrollHeight;
+  // Medir tamaño real
+  const W=inner.scrollWidth;
+  const H=inner.scrollHeight;
 
-  // A4 en píxeles a 96dpi con 8mm márgenes
-  const A4L={w:1086,h:748}; // landscape
-  const A4P={w:748,h:1086}; // portrait
+  // A4 a 96dpi con margen 8mm (~30px cada lado)
+  const A4L={w:1086,h:748};
+  const A4P={w:748,h:1086};
 
-  const scaleL=Math.min(A4L.w/W, A4L.h/H);
-  const scaleP=Math.min(A4P.w/W, A4P.h/H);
-  const useL=scaleL>=scaleP;
-  const scale=Math.min(1, useL?scaleL:scaleP);
+  const sL=Math.min(A4L.w/W, A4L.h/H);
+  const sP=Math.min(A4P.w/W, A4P.h/H);
+  const useL=sL>=sP;
+  const scale=parseFloat(Math.min(1, useL?sL:sP).toFixed(4));
   const ori=useL?'landscape':'portrait';
 
-  let s=document.getElementById('_pscss_');
+  // Eliminar CSS previo
+  let s=document.getElementById('_rptcss_');
   if(s)s.remove();
   s=document.createElement('style');
-  s.id='_pscss_';
+  s.id='_rptcss_';
   s.textContent=`
     @media print {
       @page{size:A4 ${ori};margin:8mm;}
-      body>*{visibility:hidden;}
-      #informe-wrap,#informe-contenido,#informe-contenido *{visibility:visible;}
-      #informe-wrap{
-        position:fixed;top:0;left:0;
-        overflow:visible!important;
-      }
-      #informe-btns{display:none!important;}
-      #informe-contenido{
-        transform:scale(${scale.toFixed(5)});
+      body>*{display:none!important;}
+      #rpt-outer{display:block!important;position:fixed;top:0;left:0;overflow:visible!important;background:white;}
+      #rpt-inner{
+        transform:scale(${scale});
         transform-origin:top left;
         width:${W}px!important;
+        overflow:visible!important;
       }
+      #rpt-btns{display:none!important;}
       *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
     }
   `;
   document.head.appendChild(s);
   window.print();
-  setTimeout(()=>{const el=document.getElementById('_pscss_');if(el)el.remove();},3000);
+  setTimeout(()=>{const el=document.getElementById('_rptcss_');if(el)el.remove();},3000);
 }
+
 
 // ── SERVICE WORKER ───────────────────────────────────────
 // Solo en GitHub Pages, no en Claude ni local
