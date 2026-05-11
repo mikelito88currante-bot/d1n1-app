@@ -1564,237 +1564,14 @@ function imprimirApaisado(){
   setTimeout(()=>{const el=document.getElementById('_pscss_');if(el)el.remove();},3000);
 }
 
-  // Agrupar por fecha
-  const porFecha={};
-  events.forEach(e=>{
-    if(!porFecha[e.fecha]) porFecha[e.fecha]=[];
-    porFecha[e.fecha].push(e);
-  });
-  const fechas=Object.keys(porFecha).sort();
-  const N=fechas.length;
-  const pct=(100/N).toFixed(3)+'%';
-
-  // Generar HTML de cada evento dentro de una columna
-  function eventoHTML(e, hBg){
-    const zonas=e.zonas||[];
-    const trabajadores=e.trabajadores||[];
-    const obs=e.observaciones||'';
-    let rows='';
-
-    if(e.ticketeras) rows+=`<tr><td style="${TD_L}">TICKETERA</td><td style="${TD_R} font-weight:700;">${e.ticketeras}</td></tr>`;
-    if(e.cliente)    rows+=`<tr><td style="${TD_L}">EMPRESA</td><td style="${TD_R} font-weight:700;">${e.cliente}</td></tr>`;
-    if(e.hora_reunion) rows+=`<tr><td style="${TD_L}">CITACIÓN</td><td style="${TD_R} font-weight:700;color:#c9922a;background:#fff9ee;">${e.hora_reunion}</td></tr>`;
-    if(e.hora_apertura) rows+=`<tr><td style="${TD_L}">APERTURA</td><td style="${TD_R} font-weight:700;color:#c9922a;background:#fff9ee;">${e.hora_apertura}</td></tr>`;
-    if(e.hora)       rows+=`<tr><td style="${TD_L}">INICIO EVENTO</td><td style="${TD_R} font-weight:700;color:#c9922a;background:#fff9ee;">${e.hora}</td></tr>`;
-
-    if(zonas.length){
-      rows+=`<tr><td colspan="2" style="${TH_DARK}">ACCESOS</td></tr>`;
-      zonas.forEach(z=>{
-        rows+=`<tr><td style="${TD_L}">${z.nombre}</td><td style="${TD_R}">${z.desc||''} <b style="color:#c9922a">${z.moviles} MOV</b></td></tr>`;
-      });
-      rows+=`<tr><td style="${TD_L}">TOTAL MÓVILES</td><td style="${TD_R} font-weight:700;color:#c9922a;background:#fff9ee;">${e.total_moviles||0}</td></tr>`;
-    }
-
-    if(trabajadores.length){
-      rows+=`<tr><td colspan="2" style="${TH_DARK}">RESPONSABLE</td></tr>`;
-      rows+=`<tr><td colspan="2" style="${TD_R} text-align:center;font-weight:700;">${trabajadores.map(t=>t.nombre).join(' · ')}</td></tr>`;
-    }
-
-    if(obs){
-      rows+=`<tr><td colspan="2" style="background:#78350f;color:#fff;font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;padding:2px 4px;border:1px solid #e0e4ea;">OBSERVACIONES</td></tr>`;
-      rows+=`<tr><td colspan="2" style="${TD_R} font-size:8px;white-space:pre-wrap;">${obs}</td></tr>`;
-    }
-
-    return `
-      <table style="width:100%;border-collapse:collapse;border-top:2px solid ${hBg};">
-        <tr>
-          <td colspan="2" style="background:${hBg}18;padding:4px 5px;border-bottom:1px solid #e0e4ea;">
-            <div style="font-size:10px;font-weight:700;color:${hBg};text-transform:uppercase;">${e.nombre}</div>
-            <div style="font-size:8px;color:#6b7280;">${e.recinto} · ${e.ciudad}</div>
-          </td>
-        </tr>
-        ${rows}
-      </table>`;
-  }
-
-  // Estilos de celda compartidos
-  const TD_L=`background:#f0f2f5;font-size:8px;font-weight:700;color:#6b7280;text-transform:uppercase;padding:2px 4px;border:1px solid #e0e4ea;white-space:nowrap;`;
-  const TD_R=`font-size:9px;padding:2px 4px;border:1px solid #e0e4ea;`;
-  const TH_DARK=`background:#1a1e2a;color:#fff;font-size:8px;font-weight:700;letter-spacing:0.5px;padding:2px 4px;text-transform:uppercase;border:1px solid #e0e4ea;`;
-
-  // Construir columnas
-  const cols=fechas.map((fecha,ci)=>{
-    const evs=porFecha[fecha];
-    const dateObj=new Date(fecha+'T12:00:00');
-    const diaNombre=diasNombres[dateObj.getDay()];
-    const hBg=colHeaders[ci%2];
-    const eventosHTML=evs.map(e=>eventoHTML(e,hBg)).join('<tr><td colspan="2" style="height:4px;background:#e5e7eb;padding:0;border:none;"></td></tr>');
-    return `
-      <td style="vertical-align:top;padding:0;border:1.5px solid #9ca3af;width:${pct};">
-        <table style="width:100%;border-collapse:collapse;">
-          <tr>
-            <td colspan="2" style="background:${hBg};color:#fff;text-align:center;padding:5px 4px;border-bottom:1px solid #e0e4ea;">
-              <div style="font-size:10px;font-weight:700;letter-spacing:1px;">${diaNombre}</div>
-              <div style="font-size:13px;font-weight:700;">${formatDate(fecha)}</div>
-            </td>
-          </tr>
-          <tr><td colspan="2" style="padding:0;">${eventosHTML}</td></tr>
-        </table>
-      </td>`;
-  }).join('');
-
-  const fFrom=formatDate(from), fTo=formatDate(to);
-
-  const nEvents=events.length;
-  output.innerHTML=`
-    <div id="informe-wrap">
-      <div id="informe-contenido">
-        <!-- CABECERA -->
-        <div style="background:linear-gradient(135deg,#c9922a,#a87520);color:#fff;text-align:center;padding:8px 12px;border-radius:6px;margin-bottom:8px;">
-          <div style="font-size:16px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">D1N1 — Control de Accesos y Eventos</div>
-          <div style="font-size:10px;opacity:0.9;margin-top:2px;">${fFrom} AL ${fTo} · ${nEvents} evento${nEvents!==1?'s':''} · Generado el ${new Date().toLocaleDateString('es-ES')}</div>
-        </div>
-        <!-- TABLA PRINCIPAL -->
-        <table id="tabla-informe" style="width:100%;border-collapse:collapse;table-layout:fixed;">
-          <tr>${cols}</tr>
-        </table>
-      </div>
-      <!-- BOTONES (no se imprimen) -->
-      <div id="informe-btns" style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;">
-        <button class="btn btn-primary" onclick="imprimirApaisado()" style="flex:1;justify-content:center;">🖨️ Imprimir / Guardar PDF</button>
-        <button class="btn btn-secondary" onclick="document.getElementById('report-output').innerHTML=''" style="flex:1;justify-content:center;">✕ Limpiar</button>
-      </div>
-    </div>`;
-
-  output.scrollIntoView({behavior:'smooth',block:'start'});
-
-
-function seleccionarRecinto(recinto) {
-  document.getElementById('ev-recinto').value = recinto;
-  document.getElementById('recinto-sugerencias').style.display = 'none';
-
-  // Buscar el evento más reciente en ese recinto
-  const eventosRecinto = allEvents
-    .filter(e => e.recinto && e.recinto.toLowerCase() === recinto.toLowerCase() && (e.zonas||[]).length > 0)
-    .sort((a,b) => b.fecha.localeCompare(a.fecha));
-
-  if (eventosRecinto.length > 0) {
-    const ultimo = eventosRecinto[0];
-    zonasAnterioresCargadas = JSON.parse(JSON.stringify(ultimo.zonas || []));
-
-    // Autorellenar ciudad también
-    if (!document.getElementById('ev-ciudad').value && ultimo.ciudad) {
-      document.getElementById('ev-ciudad').value = ultimo.ciudad;
-    }
-
-    // Mostrar aviso
-    const aviso = document.getElementById('zonas-recinto-aviso');
-    document.getElementById('zonas-recinto-texto').textContent =
-      `Último evento: "${ultimo.nombre}" (${formatDate(ultimo.fecha)}) · ${zonasAnterioresCargadas.length} zonas guardadas`;
-    aviso.style.display = 'flex';
-    aviso.style.flexDirection = 'column';
-    aviso.style.gap = '8px';
-    // fix: usar el display correcto
-    aviso.style.display = 'block';
-  } else {
-    ocultarAvisoRecinto();
-  }
-}
-
-function ocultarAvisoRecinto() {
-  const aviso = document.getElementById('zonas-recinto-aviso');
-  if (aviso) aviso.style.display = 'none';
-  ocultarZonasSugeridas();
-}
-
-function cargarZonasAnteriores() {
-  if (!zonasAnterioresCargadas.length) return;
-
-  // Ocultar aviso y mostrar panel de selección
-  document.getElementById('zonas-recinto-aviso').style.display = 'none';
-  const panel = document.getElementById('zonas-sugeridas-panel');
-  const lista = document.getElementById('zonas-sugeridas-lista');
-
-  lista.innerHTML = zonasAnterioresCargadas.map((z, i) => `
-    <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius);transition:border-color 0.2s;" id="zona-sug-${i}">
-      <input type="checkbox" id="zona-check-${i}" checked
-        onchange="toggleZonaSugerida(${i})"
-        style="width:18px;height:18px;accent-color:var(--accent);cursor:pointer;flex-shrink:0;">
-      <div style="flex:1;">
-        <div style="font-weight:700;font-size:13px;">${z.nombre}</div>
-        <div style="font-size:12px;color:var(--text2);">${z.desc}</div>
-      </div>
-      <div style="display:flex;align-items:center;gap:6px;">
-        <label style="font-size:11px;color:var(--text2);">Móviles:</label>
-        <input type="number" id="zona-mov-${i}" value="${z.moviles}" min="0"
-          style="width:64px;background:#fff;border:1.5px solid var(--border);color:var(--text);padding:5px 8px;border-radius:6px;font-size:13px;font-weight:700;outline:none;text-align:center;">
-      </div>
-    </div>`).join('');
-
-  panel.style.display = 'block';
-}
-
-function toggleZonaSugerida(i) {
-  const check = document.getElementById(`zona-check-${i}`);
-  const row = document.getElementById(`zona-sug-${i}`);
-  if (check.checked) {
-    row.style.borderColor = 'var(--accent)';
-    row.style.background = '#fffbeb';
-  } else {
-    row.style.borderColor = 'var(--border)';
-    row.style.background = 'var(--surface2)';
-    row.style.opacity = '0.5';
-  }
-}
-
-function confirmarZonasSugeridas() {
-  zonasAnterioresCargadas.forEach((z, i) => {
-    const check = document.getElementById(`zona-check-${i}`);
-    const movInput = document.getElementById(`zona-mov-${i}`);
-    if (check && check.checked) {
-      const moviles = parseInt(movInput?.value) || z.moviles;
-      // Evitar duplicados
-      if (!eventZonas.find(ez => ez.nombre.toLowerCase() === z.nombre.toLowerCase())) {
-        eventZonas.push({ nombre: z.nombre, desc: z.desc, moviles });
-      }
-    }
-  });
-  renderZonas();
-  ocultarZonasSugeridas();
-  toast(`✅ Zonas cargadas correctamente`);
-}
-
-function ocultarZonasSugeridas() {
-  const panel = document.getElementById('zonas-sugeridas-panel');
-  if (panel) panel.style.display = 'none';
-}
-
-// HAMBURGER MENU
-function toggleSidebar(){
-  const aside=document.getElementById('sidebar');
-  const overlay=document.getElementById('sidebar-overlay');
-  const btn=document.getElementById('btn-hamburger');
-  if(aside.classList.contains('open')){ closeSidebar(); }
-  else { aside.classList.add('open'); overlay.classList.add('open'); btn.classList.add('open'); }
-}
-function closeSidebar(){
-  document.getElementById('sidebar').classList.remove('open');
-  document.getElementById('sidebar-overlay').classList.remove('open');
-  document.getElementById('btn-hamburger').classList.remove('open');
-}
-
-function formatDate(d){if(!d)return'-';const[y,m,day]=d.split('-');return`${day}/${m}/${y}`;}
-function openModal(id){document.getElementById(id).classList.add('open');}
-function closeModal(id){document.getElementById(id).classList.remove('open');}
-document.querySelectorAll('.modal-overlay').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
-document.getElementById('login-pass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
-
-
 // ── SERVICE WORKER ───────────────────────────────────────
-if('serviceWorker' in navigator){
+// Solo en GitHub Pages, no en Claude ni local
+if('serviceWorker' in navigator &&
+   !window.location.hostname.includes('claudeusercontent.com') &&
+   window.location.protocol === 'https:'){
   navigator.serviceWorker.register('./sw.js')
-    .then(r => console.log('SW ok'))
-    .catch(e => console.log('SW fail', e));
+    .then(r => console.log('SW ok:', r.scope))
+    .catch(e => console.log('SW error:', e));
 }
 
 // ── PWA INSTALL ──────────────────────────────────────────
@@ -1841,6 +1618,54 @@ if(window.matchMedia('(display-mode: standalone)').matches || window.navigator.s
   const b = document.getElementById('btn-install-pwa');
   if(b) b.style.display = 'none';
 }
+
+// ── HAMBURGER ────────────────────────────────────────────
+function toggleSidebar(){
+  const sidebar=document.getElementById('sidebar');
+  const overlay=document.getElementById('sidebar-overlay');
+  const btn=document.getElementById('btn-hamburger');
+  if(!sidebar) return;
+  const isOpen=sidebar.classList.contains('open');
+  if(isOpen){
+    sidebar.classList.remove('open');
+    if(overlay) overlay.classList.remove('open');
+    if(btn) btn.classList.remove('open');
+  } else {
+    sidebar.classList.add('open');
+    if(overlay) overlay.classList.add('open');
+    if(btn) btn.classList.add('open');
+  }
+}
+function closeSidebar(){
+  const sidebar=document.getElementById('sidebar');
+  const overlay=document.getElementById('sidebar-overlay');
+  const btn=document.getElementById('btn-hamburger');
+  if(sidebar) sidebar.classList.remove('open');
+  if(overlay) overlay.classList.remove('open');
+  if(btn) btn.classList.remove('open');
+}
+
+// ── HELPERS ──────────────────────────────────────────────
+function formatDate(d){
+  if(!d) return '-';
+  const [y,m,day]=d.split('-');
+  return `${day}/${m}/${y}`;
+}
+function openModal(id){
+  const el=document.getElementById(id);
+  if(el) el.classList.add('open');
+}
+function closeModal(id){
+  const el=document.getElementById(id);
+  if(el) el.classList.remove('open');
+}
+document.addEventListener('DOMContentLoaded',()=>{
+  document.querySelectorAll('.modal-overlay').forEach(m=>{
+    m.addEventListener('click',e=>{ if(e.target===m) m.classList.remove('open'); });
+  });
+  const passInput=document.getElementById('login-pass');
+  if(passInput) passInput.addEventListener('keydown',e=>{ if(e.key==='Enter') doLogin(); });
+});
 
 </script>
 </body>
