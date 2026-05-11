@@ -1392,13 +1392,13 @@ function generateReport(){
   // Construir columnas HTML
   function fila(label, val, bold=false, bg='', color='#1a1e2a'){
     return `<tr>
-      <td style="background:#f0f2f5;font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;padding:4px 6px;border:1px solid #e0e4ea;white-space:nowrap;">${label}</td>
-      <td style="background:${bg||'#fff'};font-size:11px;font-weight:${bold?'700':'400'};color:${color};padding:4px 6px;border:1px solid #e0e4ea;">${val||'-'}</td>
+      <td style="background:#f0f2f5;font-size:9px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.3px;padding:3px 5px;border:1px solid #e0e4ea;white-space:nowrap;">${label}</td>
+      <td style="background:${bg||'#fff'};font-size:10px;font-weight:${bold?'700':'400'};color:${color};padding:3px 5px;border:1px solid #e0e4ea;">${val||'-'}</td>
     </tr>`;
   }
 
-    // Calcular ancho óptimo por columna
-  const colWidth = Math.max(180, Math.floor(270 / Math.max(1, fechas.length))) + 'px';
+  // Ancho igual para todas las columnas
+  const colWidth = `${(100/fechas.length).toFixed(2)}%`;
   
   const colsHtml = fechas.map((fecha,ci)=>{
     const evs=porFecha[fecha];
@@ -1407,11 +1407,11 @@ function generateReport(){
     const fechaFmt=formatDate(fecha);
     const headerBg=colHeaders[ci%2];
 
-    return `<td style="vertical-align:top;padding:0;border:2px solid #c8cdd6;min-width:${colWidth};width:${colWidth};">
+    return `<td style="vertical-align:top;padding:0;border:2px solid #c8cdd6;">
       <!-- Cabecera de columna con día y fecha -->
-      <div style="background:${headerBg};color:#fff;text-align:center;padding:8px 10px;">
-        <div style="font-size:13px;font-weight:700;letter-spacing:1px;">${diaNombre}</div>
-        <div style="font-size:16px;font-weight:700;">${fechaFmt}</div>
+      <div style="background:${headerBg};color:#fff;text-align:center;padding:6px 8px;">
+        <div style="font-size:11px;font-weight:700;letter-spacing:1px;">${diaNombre}</div>
+        <div style="font-size:14px;font-weight:700;">${fechaFmt}</div>
       </div>
 
       ${evs.map(e=>{
@@ -1421,9 +1421,9 @@ function generateReport(){
         <!-- Evento -->
         <div style="border-top:3px solid ${headerBg};">
           <!-- Nombre evento -->
-          <div style="background:${headerBg}22;padding:6px 8px;border-bottom:1px solid #e0e4ea;">
-            <div style="font-size:12px;font-weight:700;color:${headerBg};text-transform:uppercase;letter-spacing:0.5px;">${e.nombre}</div>
-            <div style="font-size:10px;color:#6b7280;">${e.recinto} · ${e.ciudad}</div>
+          <div style="background:${headerBg}22;padding:5px 6px;border-bottom:1px solid #e0e4ea;">
+            <div style="font-size:11px;font-weight:700;color:${headerBg};text-transform:uppercase;letter-spacing:0.5px;">${e.nombre}</div>
+            <div style="font-size:9px;color:#6b7280;">${e.recinto} · ${e.ciudad}</div>
           </div>
 
           <table style="width:100%;border-collapse:collapse;">
@@ -1455,40 +1455,50 @@ function generateReport(){
   }).join('');
 
   const fFrom=formatDate(from), fTo=formatDate(to);
+  const numDias = fechas.length;
 
   const html=`
   <div id="informe-imprimible">
     <style>
+      #informe-imprimible { font-family: 'Barlow Condensed', Arial, sans-serif; }
+      #wrap-escala { width:100%; }
+      #tabla-informe { border-collapse:collapse; width:100%; table-layout:fixed; }
+      #tabla-informe td { vertical-align:top; }
+      .no-print-btn { }
       @media print {
-        body * { visibility:hidden; }
-        #informe-imprimible, #informe-imprimible * { visibility:visible; }
-        #informe-imprimible { position:fixed; top:0; left:0; width:100%; padding:10px; font-size:10px; }
-        .no-print { display:none !important; }
-        #tabla-informe { page-break-inside:auto; }
-        #tabla-informe td { page-break-inside:avoid; }
+        @page { size: A4 landscape; margin: 6mm; }
+        body * { visibility: hidden; }
+        #informe-imprimible, #informe-imprimible * { visibility: visible; }
+        #informe-imprimible {
+          position: fixed; top: 0; left: 0;
+          width: 277mm;
+        }
+        .no-print-btn { display: none !important; }
+        #wrap-escala {
+          width: 277mm;
+          transform-origin: top left;
+        }
+        * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
       }
-      #tabla-informe td { page-break-inside:avoid; }
     </style>
 
     <!-- TÍTULO -->
-    <div style="text-align:center;margin-bottom:16px;padding:12px;background:linear-gradient(135deg,#c9922a,#a87520);border-radius:10px;color:#fff;">
-      <div style="font-size:20px;font-weight:700;letter-spacing:3px;">D1N1 — CONTROL DE ACCESOS Y EVENTOS</div>
-      <div style="font-size:13px;opacity:0.9;margin-top:4px;">${fFrom} AL ${fTo} &nbsp;·&nbsp; ${events.length} evento${events.length!==1?'s':''} &nbsp;·&nbsp; Generado el ${new Date().toLocaleDateString('es-ES')}</div>
-    </div>
+    <div id="wrap-escala">
+      <div style="text-align:center;margin-bottom:10px;padding:10px 12px;background:linear-gradient(135deg,#c9922a,#a87520);border-radius:8px;color:#fff;">
+        <div style="font-size:18px;font-weight:700;letter-spacing:3px;text-transform:uppercase;">D1N1 — Control de Accesos y Eventos</div>
+        <div style="font-size:11px;opacity:0.9;margin-top:3px;">${fFrom} AL ${fTo} &nbsp;·&nbsp; ${events.length} evento${events.length!==1?'s':''} &nbsp;·&nbsp; Generado el ${new Date().toLocaleDateString('es-ES')}</div>
+      </div>
 
-    <!-- TABLA HORIZONTAL -->
-    <div style="overflow-x:auto;">
-      <table id="tabla-informe" style="border-collapse:collapse;width:100%;table-layout:fixed;">
+      <!-- TABLA HORIZONTAL -->
+      <table id="tabla-informe">
+        <colgroup>${fechas.map(()=>`<col style="width:${(100/numDias).toFixed(2)}%">`).join('')}</colgroup>
         <tr>${colsHtml}</tr>
       </table>
     </div>
 
     <!-- BOTONES -->
-    <div class="no-print" style="display:flex;gap:12px;margin-top:16px;flex-wrap:wrap;">
+    <div class="no-print-btn" style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;">
       <button class="btn btn-primary" onclick="imprimirApaisado()" style="flex:1;justify-content:center;">🖨️ Imprimir / Guardar PDF</button>
-      <div style="font-size:11px;color:var(--text2);padding:6px 10px;background:var(--surface2);border-radius:6px;flex:1;text-align:center;">
-        💡 Si se corta: en el diálogo de impresión activa <b>"Ajustar a la página"</b> o reduce la escala manualmente
-      </div>
       <button class="btn btn-secondary" onclick="document.getElementById('report-output').innerHTML=''" style="flex:1;justify-content:center;">✕ Limpiar</button>
     </div>
   </div>`;
@@ -1498,42 +1508,39 @@ function generateReport(){
 }
 
 function imprimirApaisado(){
-  const tabla = document.getElementById('tabla-informe');
-  if(!tabla) { window.print(); return; }
+  const wrap = document.getElementById('wrap-escala');
+  if(!wrap){ window.print(); return; }
 
-  // Calcular cuántas columnas hay
-  const cols = tabla.querySelectorAll('tr > td').length;
-  
-  // Calcular el ancho real de la tabla vs el ancho disponible en papel apaisado A4
-  // A4 landscape con márgenes 5mm = ~277mm = ~1047px a 96dpi
-  const paperWidth = 1047; 
-  const tableWidth = tabla.scrollWidth;
-  
-  // Calcular escala necesaria
-  const scale = Math.min(1, paperWidth / tableWidth);
-  
-  // Aplicar escala dinámica solo para impresión
-  const styleEl = document.createElement('style');
-  styleEl.id = 'print-scale-style';
-  styleEl.innerHTML = `
+  // A4 landscape a 96dpi con 6mm márgenes = ~1062px disponibles
+  const PAGE_W_PX = 1062;
+  const realW = wrap.scrollWidth;
+  const scale = Math.min(1.0, PAGE_W_PX / realW);
+
+  // Inyectar CSS de escala exacta para impresión
+  let s = document.getElementById('_print_scale_');
+  if(s) s.remove();
+  s = document.createElement('style');
+  s.id = '_print_scale_';
+  s.textContent = `
     @media print {
-      @page { size: landscape; margin: 5mm; }
-      html { zoom: ${scale}; }
-      #informe-imprimible {
-        transform: scale(${scale});
+      @page { size: A4 landscape; margin: 6mm; }
+      body * { visibility: hidden; }
+      #informe-imprimible, #informe-imprimible * { visibility: visible; }
+      #informe-imprimible { position: fixed; top: 0; left: 0; }
+      .no-print-btn { display: none !important; }
+      #wrap-escala {
+        transform: scale(${scale.toFixed(4)});
         transform-origin: top left;
-        width: ${100/scale}%;
+        width: ${Math.round(realW)}px !important;
       }
+      * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     }
   `;
-  document.head.appendChild(styleEl);
-  
+  document.head.appendChild(s);
+
   window.print();
-  
-  setTimeout(()=>{
-    const s = document.getElementById('print-scale-style');
-    if(s) s.remove();
-  }, 2000);
+
+  setTimeout(()=>{ const el=document.getElementById('_print_scale_'); if(el) el.remove(); }, 3000);
 }
 
 // RECINTO AUTOCOMPLETE Y ZONAS ANTERIORES
