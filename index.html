@@ -1375,172 +1375,157 @@ function generateReport(){
   }
 
   const diasNombres=['DOMINGO','LUNES','MARTES','MIÉRCOLES','JUEVES','VIERNES','SÁBADO'];
+  const colHeaders=['#c9922a','#374151'];
 
-  // Agrupar eventos por fecha
+  // Agrupar por fecha
   const porFecha={};
   events.forEach(e=>{
     if(!porFecha[e.fecha]) porFecha[e.fecha]=[];
     porFecha[e.fecha].push(e);
   });
   const fechas=Object.keys(porFecha).sort();
-  const numCols=fechas.length;
+  const N=fechas.length;
+  const pct=(100/N).toFixed(3)+'%';
 
-  // Colores alternos para columnas (dorado y gris como el excel)
-  const colBgs=['#fff9ee','#f5f7fa'];
-  const colHeaders=['#c9922a','#4a5568'];
+  // Generar HTML de cada evento dentro de una columna
+  function eventoHTML(e, hBg){
+    const zonas=e.zonas||[];
+    const trabajadores=e.trabajadores||[];
+    const obs=e.observaciones||'';
+    let rows='';
 
-  // Construir columnas HTML
-  function fila(label, val, bold=false, bg='', color='#1a1e2a'){
-    return `<tr>
-      <td style="background:#f0f2f5;font-size:9px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.3px;padding:3px 5px;border:1px solid #e0e4ea;white-space:nowrap;">${label}</td>
-      <td style="background:${bg||'#fff'};font-size:10px;font-weight:${bold?'700':'400'};color:${color};padding:3px 5px;border:1px solid #e0e4ea;">${val||'-'}</td>
-    </tr>`;
+    if(e.ticketeras) rows+=`<tr><td style="${TD_L}">TICKETERA</td><td style="${TD_R} font-weight:700;">${e.ticketeras}</td></tr>`;
+    if(e.cliente)    rows+=`<tr><td style="${TD_L}">EMPRESA</td><td style="${TD_R} font-weight:700;">${e.cliente}</td></tr>`;
+    if(e.hora_reunion) rows+=`<tr><td style="${TD_L}">CITACIÓN</td><td style="${TD_R} font-weight:700;color:#c9922a;background:#fff9ee;">${e.hora_reunion}</td></tr>`;
+    if(e.hora_apertura) rows+=`<tr><td style="${TD_L}">APERTURA</td><td style="${TD_R} font-weight:700;color:#c9922a;background:#fff9ee;">${e.hora_apertura}</td></tr>`;
+    if(e.hora)       rows+=`<tr><td style="${TD_L}">INICIO EVENTO</td><td style="${TD_R} font-weight:700;color:#c9922a;background:#fff9ee;">${e.hora}</td></tr>`;
+
+    if(zonas.length){
+      rows+=`<tr><td colspan="2" style="${TH_DARK}">ACCESOS</td></tr>`;
+      zonas.forEach(z=>{
+        rows+=`<tr><td style="${TD_L}">${z.nombre}</td><td style="${TD_R}">${z.desc||''} <b style="color:#c9922a">${z.moviles} MOV</b></td></tr>`;
+      });
+      rows+=`<tr><td style="${TD_L}">TOTAL MÓVILES</td><td style="${TD_R} font-weight:700;color:#c9922a;background:#fff9ee;">${e.total_moviles||0}</td></tr>`;
+    }
+
+    if(trabajadores.length){
+      rows+=`<tr><td colspan="2" style="${TH_DARK}">RESPONSABLE</td></tr>`;
+      rows+=`<tr><td colspan="2" style="${TD_R} text-align:center;font-weight:700;">${trabajadores.map(t=>t.nombre).join(' · ')}</td></tr>`;
+    }
+
+    if(obs){
+      rows+=`<tr><td colspan="2" style="background:#78350f;color:#fff;font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;padding:2px 4px;border:1px solid #e0e4ea;">OBSERVACIONES</td></tr>`;
+      rows+=`<tr><td colspan="2" style="${TD_R} font-size:8px;white-space:pre-wrap;">${obs}</td></tr>`;
+    }
+
+    return `
+      <table style="width:100%;border-collapse:collapse;border-top:2px solid ${hBg};">
+        <tr>
+          <td colspan="2" style="background:${hBg}18;padding:4px 5px;border-bottom:1px solid #e0e4ea;">
+            <div style="font-size:10px;font-weight:700;color:${hBg};text-transform:uppercase;">${e.nombre}</div>
+            <div style="font-size:8px;color:#6b7280;">${e.recinto} · ${e.ciudad}</div>
+          </td>
+        </tr>
+        ${rows}
+      </table>`;
   }
 
-  // Ancho igual para todas las columnas
-  const colWidth = `${(100/fechas.length).toFixed(2)}%`;
-  
-  const colsHtml = fechas.map((fecha,ci)=>{
+  // Estilos de celda compartidos
+  const TD_L=`background:#f0f2f5;font-size:8px;font-weight:700;color:#6b7280;text-transform:uppercase;padding:2px 4px;border:1px solid #e0e4ea;white-space:nowrap;`;
+  const TD_R=`font-size:9px;padding:2px 4px;border:1px solid #e0e4ea;`;
+  const TH_DARK=`background:#1a1e2a;color:#fff;font-size:8px;font-weight:700;letter-spacing:0.5px;padding:2px 4px;text-transform:uppercase;border:1px solid #e0e4ea;`;
+
+  // Construir columnas
+  const cols=fechas.map((fecha,ci)=>{
     const evs=porFecha[fecha];
     const dateObj=new Date(fecha+'T12:00:00');
     const diaNombre=diasNombres[dateObj.getDay()];
-    const fechaFmt=formatDate(fecha);
-    const headerBg=colHeaders[ci%2];
-
-    return `<td style="vertical-align:top;padding:0;border:2px solid #c8cdd6;">
-      <!-- Cabecera de columna con día y fecha -->
-      <div style="background:${headerBg};color:#fff;text-align:center;padding:6px 8px;">
-        <div style="font-size:11px;font-weight:700;letter-spacing:1px;">${diaNombre}</div>
-        <div style="font-size:14px;font-weight:700;">${fechaFmt}</div>
-      </div>
-
-      ${evs.map(e=>{
-        const zonas=e.zonas||[];
-        const trabajadores=e.trabajadores||[];
-        return `
-        <!-- Evento -->
-        <div style="border-top:3px solid ${headerBg};">
-          <!-- Nombre evento -->
-          <div style="background:${headerBg}22;padding:5px 6px;border-bottom:1px solid #e0e4ea;">
-            <div style="font-size:11px;font-weight:700;color:${headerBg};text-transform:uppercase;letter-spacing:0.5px;">${e.nombre}</div>
-            <div style="font-size:9px;color:#6b7280;">${e.recinto} · ${e.ciudad}</div>
-          </div>
-
-          <table style="width:100%;border-collapse:collapse;">
-            ${e.ticketeras?fila('TICKETERA',e.ticketeras,true):''}
-            ${e.cliente?fila('EMPRESA',e.cliente,true):''}
-            ${e.hora_reunion?fila('CITACIÓN',e.hora_reunion,true,'#fff9ee','#c9922a'):''}
-            ${e.hora_apertura?fila('APERTURA',e.hora_apertura,true,'#fff9ee','#c9922a'):''}
-            ${e.hora?fila('INICIO EVENTO',e.hora,true,'#fff9ee','#c9922a'):''}
-
-            ${zonas.length?`
-            <tr><td colspan="2" style="background:#1a1e2a;color:#fff;font-size:10px;font-weight:700;letter-spacing:1px;padding:4px 6px;text-transform:uppercase;border:1px solid #e0e4ea;">ACCESOS</td></tr>
-            ${zonas.map(z=>fila(z.nombre, `${z.desc} &nbsp;<b style="color:#c9922a">${z.moviles} MOV</b>`, false)).join('')}
-            ${fila('TOTAL MÓVILES', `<b style="color:#c9922a;font-size:13px;">${e.total_moviles||0}</b>`, true, '#fff9ee')}
-            `:''}
-
-            ${trabajadores.length?`
-            <tr><td colspan="2" style="background:#2d3748;color:#fff;font-size:10px;font-weight:700;letter-spacing:1px;padding:4px 6px;text-transform:uppercase;border:1px solid #e0e4ea;">RESPONSABLE</td></tr>
-            ${fila('',trabajadores.map(t=>t.nombre).join(' · '),true)}
-            `:''}
-
-            ${e.observaciones?`
-            <tr><td colspan="2" style="background:#744210;color:#fff;font-size:10px;font-weight:700;letter-spacing:1px;padding:4px 6px;text-transform:uppercase;border:1px solid #e0e4ea;">OBSERVACIONES</td></tr>
-            <tr><td colspan="2" style="font-size:10px;padding:6px 8px;border:1px solid #e0e4ea;color:#1a1e2a;line-height:1.5;white-space:pre-wrap;">${e.observaciones}</td></tr>
-            `:''}
-          </table>
-        </div>`;
-      }).join('<div style="height:6px;background:#e0e4ea;"></div>')}
-    </td>`;
+    const hBg=colHeaders[ci%2];
+    const eventosHTML=evs.map(e=>eventoHTML(e,hBg)).join('<tr><td colspan="2" style="height:4px;background:#e5e7eb;padding:0;border:none;"></td></tr>');
+    return `
+      <td style="vertical-align:top;padding:0;border:1.5px solid #9ca3af;width:${pct};">
+        <table style="width:100%;border-collapse:collapse;">
+          <tr>
+            <td colspan="2" style="background:${hBg};color:#fff;text-align:center;padding:5px 4px;border-bottom:1px solid #e0e4ea;">
+              <div style="font-size:10px;font-weight:700;letter-spacing:1px;">${diaNombre}</div>
+              <div style="font-size:13px;font-weight:700;">${formatDate(fecha)}</div>
+            </td>
+          </tr>
+          <tr><td colspan="2" style="padding:0;">${eventosHTML}</td></tr>
+        </table>
+      </td>`;
   }).join('');
 
   const fFrom=formatDate(from), fTo=formatDate(to);
-  const numDias = fechas.length;
 
-  const html=`
-  <div id="informe-imprimible">
-    <style>
-      #informe-imprimible { font-family: 'Barlow Condensed', Arial, sans-serif; }
-      #wrap-escala { width:100%; }
-      #tabla-informe { border-collapse:collapse; width:100%; table-layout:fixed; }
-      #tabla-informe td { vertical-align:top; }
-      .no-print-btn { }
-      @media print {
-        @page { size: A4 landscape; margin: 6mm; }
-        body * { visibility: hidden; }
-        #informe-imprimible, #informe-imprimible * { visibility: visible; }
-        #informe-imprimible {
-          position: fixed; top: 0; left: 0;
-          width: 277mm;
-        }
-        .no-print-btn { display: none !important; }
-        #wrap-escala {
-          width: 277mm;
-          transform-origin: top left;
-        }
-        * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
-      }
-    </style>
-
-    <!-- TÍTULO -->
-    <div id="wrap-escala">
-      <div style="text-align:center;margin-bottom:10px;padding:10px 12px;background:linear-gradient(135deg,#c9922a,#a87520);border-radius:8px;color:#fff;">
-        <div style="font-size:18px;font-weight:700;letter-spacing:3px;text-transform:uppercase;">D1N1 — Control de Accesos y Eventos</div>
-        <div style="font-size:11px;opacity:0.9;margin-top:3px;">${fFrom} AL ${fTo} &nbsp;·&nbsp; ${events.length} evento${events.length!==1?'s':''} &nbsp;·&nbsp; Generado el ${new Date().toLocaleDateString('es-ES')}</div>
+  output.innerHTML=`
+    <div id="informe-wrap">
+      <div id="informe-contenido">
+        <!-- CABECERA -->
+        <div style="background:linear-gradient(135deg,#c9922a,#a87520);color:#fff;text-align:center;padding:8px 12px;border-radius:6px;margin-bottom:8px;">
+          <div style="font-size:16px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">D1N1 — Control de Accesos y Eventos</div>
+          <div style="font-size:10px;opacity:0.9;margin-top:2px;">${fFrom} AL ${fTo} · ${events.length} evento${events.length!==1?'s':''} · Generado el ${new Date().toLocaleDateString('es-ES')}</div>
+        </div>
+        <!-- TABLA PRINCIPAL -->
+        <table id="tabla-informe" style="width:100%;border-collapse:collapse;table-layout:fixed;">
+          <tr>${cols}</tr>
+        </table>
       </div>
+      <!-- BOTONES (no se imprimen) -->
+      <div id="informe-btns" style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;">
+        <button class="btn btn-primary" onclick="imprimirApaisado()" style="flex:1;justify-content:center;">🖨️ Imprimir / Guardar PDF</button>
+        <button class="btn btn-secondary" onclick="document.getElementById('report-output').innerHTML=''" style="flex:1;justify-content:center;">✕ Limpiar</button>
+      </div>
+    </div>`;
 
-      <!-- TABLA HORIZONTAL -->
-      <table id="tabla-informe">
-        <colgroup>${fechas.map(()=>`<col style="width:${(100/numDias).toFixed(2)}%">`).join('')}</colgroup>
-        <tr>${colsHtml}</tr>
-      </table>
-    </div>
-
-    <!-- BOTONES -->
-    <div class="no-print-btn" style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;">
-      <button class="btn btn-primary" onclick="imprimirApaisado()" style="flex:1;justify-content:center;">🖨️ Imprimir / Guardar PDF</button>
-      <button class="btn btn-secondary" onclick="document.getElementById('report-output').innerHTML=''" style="flex:1;justify-content:center;">✕ Limpiar</button>
-    </div>
-  </div>`;
-
-  output.innerHTML=html;
-  output.scrollIntoView({behavior:'smooth', block:'start'});
+  output.scrollIntoView({behavior:'smooth',block:'start'});
 }
 
 function imprimirApaisado(){
-  const wrap = document.getElementById('wrap-escala');
-  if(!wrap){ window.print(); return; }
+  const contenido=document.getElementById('informe-contenido');
+  if(!contenido){window.print();return;}
 
-  // A4 landscape a 96dpi con 6mm márgenes = ~1062px disponibles
-  const PAGE_W_PX = 1062;
-  const realW = wrap.scrollWidth;
-  const scale = Math.min(1.0, PAGE_W_PX / realW);
+  // Medir tamaño real del contenido
+  const W=contenido.scrollWidth;
+  const H=contenido.scrollHeight;
 
-  // Inyectar CSS de escala exacta para impresión
-  let s = document.getElementById('_print_scale_');
-  if(s) s.remove();
-  s = document.createElement('style');
-  s.id = '_print_scale_';
-  s.textContent = `
+  // Papel A4: landscape=297x210mm, portrait=210x297mm → a 96dpi
+  const A4L_W=1122, A4L_H=794; // landscape px (menos 10mm márgenes)
+  const A4P_W=794,  A4P_H=1122; // portrait px
+
+  // Elegir orientación que mejor se ajuste
+  let orientation, paperW, paperH;
+  const scaleL=Math.min(A4L_W/W, A4L_H/H);
+  const scaleP=Math.min(A4P_W/W, A4P_H/H);
+  if(scaleL>=scaleP){
+    orientation='landscape'; paperW=A4L_W; paperH=A4L_H;
+  } else {
+    orientation='portrait'; paperW=A4P_W; paperH=A4P_H;
+  }
+  const scale=Math.min(1, Math.min(paperW/W, paperH/H));
+
+  // Inyectar CSS de impresión con escala exacta
+  let s=document.getElementById('_pscss_');
+  if(s)s.remove();
+  s=document.createElement('style');
+  s.id='_pscss_';
+  s.textContent=`
     @media print {
-      @page { size: A4 landscape; margin: 6mm; }
-      body * { visibility: hidden; }
-      #informe-imprimible, #informe-imprimible * { visibility: visible; }
-      #informe-imprimible { position: fixed; top: 0; left: 0; }
-      .no-print-btn { display: none !important; }
-      #wrap-escala {
-        transform: scale(${scale.toFixed(4)});
-        transform-origin: top left;
-        width: ${Math.round(realW)}px !important;
+      @page{size:A4 ${orientation};margin:8mm;}
+      body>*{display:none!important;}
+      #informe-wrap{display:block!important;position:fixed;top:0;left:0;width:100vw;}
+      #informe-btns{display:none!important;}
+      #informe-contenido{
+        transform:scale(${scale.toFixed(5)});
+        transform-origin:top left;
+        width:${W}px;
       }
-      * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+      *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
     }
   `;
   document.head.appendChild(s);
-
   window.print();
-
-  setTimeout(()=>{ const el=document.getElementById('_print_scale_'); if(el) el.remove(); }, 3000);
+  setTimeout(()=>{const el=document.getElementById('_pscss_');if(el)el.remove();},3000);
 }
 
 // RECINTO AUTOCOMPLETE Y ZONAS ANTERIORES
