@@ -836,6 +836,14 @@ async function loadAll(){
   allEvents=ev.data||[]; allUsers=us.data||[]; allNominas=nom.data||[];
 }
 
+let authInfoMap = {};
+async function loadAuthInfo(){
+  try {
+    const {data} = await db.from('user_auth_info').select('id,last_sign_in_at,email_confirmed_at');
+    if(data) data.forEach(a=>{ authInfoMap[a.id]={last_sign_in:a.last_sign_in_at, email_confirmed:a.email_confirmed_at}; });
+  } catch(e){ authInfoMap={}; }
+}
+
 function toast(msg,type='success'){
   const t=document.getElementById('toast');
   t.textContent=msg; t.className='show '+type;
