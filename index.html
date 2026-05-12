@@ -1417,84 +1417,87 @@ function generateReport(){
   const DIAS=['DOMINGO','LUNES','MARTES','MIÉRCOLES','JUEVES','VIERNES','SÁBADO'];
   const HCOLS=['#c9922a','#374151'];
 
-  // Agrupar por fecha
   const byDate={};
   evts.forEach(e=>{ if(!byDate[e.fecha]) byDate[e.fecha]=[]; byDate[e.fecha].push(e); });
   const dates=Object.keys(byDate).sort();
   const N=dates.length;
+  const COL=220; // px fijos por columna
+  const TOTAL=N*COL;
 
-  // Generar HTML completo de cada columna-día
-  function buildCol(fecha, ci){
+  const S={
+    lbl:'font-size:8.5px;font-weight:700;color:#555;text-transform:uppercase;padding:2px 5px;border:1px solid #d1d5db;white-space:nowrap;background:#eef0f3;vertical-align:middle;word-break:keep-all;',
+    val:'font-size:9px;padding:2px 5px;border:1px solid #d1d5db;vertical-align:middle;word-break:break-word;',
+    dark:'font-size:8px;font-weight:700;text-transform:uppercase;padding:3px 5px;border:1px solid #d1d5db;background:#1f2937;color:#fff;',
+    obs:'font-size:8px;font-weight:700;text-transform:uppercase;padding:2px 5px;border:1px solid #d1d5db;background:#78350f;color:#fff;'
+  };
+
+  function buildDay(fecha, ci){
     const evList=byDate[fecha];
     const hc=HCOLS[ci%2];
     const dn=DIAS[new Date(fecha+'T12:00:00').getDay()];
     const fd=formatDate(fecha);
 
-    // Estils inline para evitar problemas de clase
-    const tdLbl=`background:#eef0f3;font-size:8.5px;font-weight:700;color:#555;text-transform:uppercase;padding:2px 5px;border:1px solid #d1d5db;white-space:nowrap;vertical-align:top;`;
-    const tdVal=`font-size:9px;padding:2px 5px;border:1px solid #d1d5db;vertical-align:top;`;
-    const thDark=`background:#1f2937;color:#fff;font-size:8px;font-weight:700;text-transform:uppercase;padding:3px 5px;border:1px solid #d1d5db;`;
+    let inner=`<tr><td colspan="2" style="background:${hc};color:#fff;text-align:center;padding:5px 4px;">
+      <div style="font-size:9px;font-weight:700;letter-spacing:1px;">${dn}</div>
+      <div style="font-size:13px;font-weight:700;">${fd}</div>
+    </td></tr>`;
 
-    let evHtml='';
     evList.forEach((e,ei)=>{
       const zonas=e.zonas||[];
       const workers=e.trabajadores||[];
-      let rows='';
+      if(ei>0) inner+=`<tr><td colspan="2" style="height:3px;background:#d1d5db;padding:0;border:none;"></td></tr>`;
+      
+      inner+=`<tr><td colspan="2" style="background:${hc}25;padding:3px 5px;border-top:2px solid ${hc};border-bottom:1px solid #d1d5db;">
+        <div style="font-size:9.5px;font-weight:700;color:${hc};text-transform:uppercase;word-break:break-word;">${e.nombre}</div>
+        <div style="font-size:8px;color:#6b7280;">${e.recinto} · ${e.ciudad}</div>
+      </td></tr>`;
 
-      if(e.ticketeras) rows+=`<tr><td style="${tdLbl}">TICKETERA</td><td style="${tdVal}"><b>${e.ticketeras}</b></td></tr>`;
-      if(e.cliente)    rows+=`<tr><td style="${tdLbl}">EMPRESA</td><td style="${tdVal}"><b>${e.cliente}</b></td></tr>`;
-      if(e.hora_reunion) rows+=`<tr><td style="${tdLbl}">CITACIÓN</td><td style="${tdVal}color:#c9922a;font-weight:700;background:#fef9ee;"><b>${e.hora_reunion}</b></td></tr>`;
-      if(e.hora_apertura) rows+=`<tr><td style="${tdLbl}">APERTURA</td><td style="${tdVal}color:#c9922a;font-weight:700;background:#fef9ee;"><b>${e.hora_apertura}</b></td></tr>`;
-      if(e.hora) rows+=`<tr><td style="${tdLbl}">INICIO</td><td style="${tdVal}color:#c9922a;font-weight:700;background:#fef9ee;"><b>${e.hora}</b></td></tr>`;
+      if(e.ticketeras) inner+=`<tr><td style="${S.lbl}">TICKETERA</td><td style="${S.val}"><b>${e.ticketeras}</b></td></tr>`;
+      if(e.cliente)    inner+=`<tr><td style="${S.lbl}">EMPRESA</td><td style="${S.val}"><b>${e.cliente}</b></td></tr>`;
+      if(e.hora_reunion) inner+=`<tr><td style="${S.lbl}">CITACIÓN</td><td style="${S.val}background:#fef9ee;color:#c9922a;font-weight:700;"><b>${e.hora_reunion}</b></td></tr>`;
+      if(e.hora_apertura) inner+=`<tr><td style="${S.lbl}">APERTURA</td><td style="${S.val}background:#fef9ee;color:#c9922a;font-weight:700;"><b>${e.hora_apertura}</b></td></tr>`;
+      if(e.hora) inner+=`<tr><td style="${S.lbl}">INICIO</td><td style="${S.val}background:#fef9ee;color:#c9922a;font-weight:700;"><b>${e.hora}</b></td></tr>`;
 
       if(zonas.length){
-        rows+=`<tr><td colspan="2" style="${thDark}">ACCESOS</td></tr>`;
+        inner+=`<tr><td colspan="2" style="${S.dark}">ACCESOS</td></tr>`;
         zonas.forEach(z=>{
-          rows+=`<tr><td style="${tdLbl}">${z.nombre}</td><td style="${tdVal}">${z.desc||''} <b style="color:#c9922a">${z.moviles} MOV</b></td></tr>`;
+          inner+=`<tr><td style="${S.lbl}">${z.nombre}</td><td style="${S.val}">${z.desc||''} <b style="color:#c9922a">${z.moviles} MOV</b></td></tr>`;
         });
-        rows+=`<tr><td style="${tdLbl}">TOTAL MOV</td><td style="${tdVal}font-weight:700;color:#c9922a;background:#fef9ee;"><b>${e.total_moviles||0}</b></td></tr>`;
+        inner+=`<tr><td style="${S.lbl}">TOTAL MOV</td><td style="${S.val}background:#fef9ee;font-weight:700;color:#c9922a;"><b>${e.total_moviles||0}</b></td></tr>`;
       }
       if(workers.length){
-        rows+=`<tr><td colspan="2" style="${thDark}">RESPONSABLE</td></tr>`;
-        rows+=`<tr><td colspan="2" style="${tdVal}font-weight:700;text-align:center;">${workers.map(t=>t.nombre).join(' · ')}</td></tr>`;
+        inner+=`<tr><td colspan="2" style="${S.dark}">RESPONSABLE</td></tr>`;
+        inner+=`<tr><td colspan="2" style="${S.val}text-align:center;font-weight:700;">${workers.map(t=>t.nombre).join(' · ')}</td></tr>`;
       }
       if(e.observaciones){
-        rows+=`<tr><td colspan="2" style="background:#78350f;color:#fff;font-size:8px;font-weight:700;text-transform:uppercase;padding:2px 5px;border:1px solid #d1d5db;">OBSERVACIONES</td></tr>`;
-        rows+=`<tr><td colspan="2" style="${tdVal}font-size:8px;white-space:pre-wrap;">${e.observaciones}</td></tr>`;
+        inner+=`<tr><td colspan="2" style="${S.obs}">OBSERVACIONES</td></tr>`;
+        inner+=`<tr><td colspan="2" style="${S.val}font-size:8px;white-space:pre-wrap;">${e.observaciones}</td></tr>`;
       }
-
-      const sep=ei>0?`<tr><td colspan="2" style="height:3px;background:#d1d5db;padding:0;border:none;"></td></tr>`:'';
-      evHtml+=`${sep}
-        <tr><td colspan="2" style="background:${hc}18;padding:3px 5px;border-top:2px solid ${hc};border-bottom:1px solid #d1d5db;">
-          <div style="font-size:9.5px;font-weight:700;color:${hc};text-transform:uppercase;">${e.nombre}</div>
-          <div style="font-size:8px;color:#6b7280;">${e.recinto} · ${e.ciudad}</div>
-        </td></tr>
-        ${rows}`;
     });
-
-    return `<td style="vertical-align:top;padding:0;border:2px solid #9ca3af;width:${(100/N).toFixed(3)}%;">
-      <table style="width:100%;border-collapse:collapse;table-layout:fixed;">
-        <tr><td colspan="2" style="background:${hc};color:#fff;text-align:center;padding:5px 4px;border-bottom:1px solid ${hc};">
-          <div style="font-size:9px;font-weight:700;letter-spacing:1px;">${dn}</div>
-          <div style="font-size:13px;font-weight:700;">${fd}</div>
-        </td></tr>
-        ${evHtml}
-      </table>
-    </td>`;
+    return inner;
   }
 
+  // Construir HTML con tabla fija y colgroup
+  const colgroup=dates.map(()=>`<col style="width:${COL}px;">`).join('');
+  const cells=dates.map((f,i)=>`
+    <td style="vertical-align:top;padding:0;border:2px solid #9ca3af;overflow:hidden;">
+      <table style="width:${COL}px;border-collapse:collapse;table-layout:fixed;">
+        ${buildDay(f,i)}
+      </table>
+    </td>`).join('');
+
   const fFrom=formatDate(from), fTo=formatDate(to);
-  const colsHTML=dates.map((f,i)=>buildCol(f,i)).join('');
 
   output.innerHTML=`
-    <div id="rpt-outer" style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
-      <div id="rpt-inner" style="min-width:${N*200}px;">
-        <div style="background:linear-gradient(135deg,#c9922a,#a87520);color:#fff;text-align:center;padding:8px 12px;border-radius:6px;margin-bottom:8px;">
+    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+      <div id="rpt-inner" style="display:inline-block;min-width:${TOTAL}px;vertical-align:top;">
+        <div style="background:linear-gradient(135deg,#c9922a,#a87520);color:#fff;text-align:center;padding:8px 12px;border-radius:6px;margin-bottom:8px;width:${TOTAL}px;box-sizing:border-box;">
           <div style="font-size:15px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">D1N1 — Control de Accesos y Eventos</div>
           <div style="font-size:10px;opacity:0.9;margin-top:2px;">${fFrom} AL ${fTo} · ${evts.length} evento${evts.length!==1?'s':''} · ${new Date().toLocaleDateString('es-ES')}</div>
         </div>
-        <table id="rpt-table" style="width:100%;border-collapse:collapse;table-layout:fixed;">
-          <tr>${colsHTML}</tr>
+        <table style="border-collapse:collapse;table-layout:fixed;width:${TOTAL}px;">
+          <colgroup>${colgroup}</colgroup>
+          <tr>${cells}</tr>
         </table>
       </div>
     </div>
@@ -1509,45 +1512,32 @@ function generateReport(){
 function printReport(){
   const inner=document.getElementById('rpt-inner');
   if(!inner){window.print();return;}
-
-  // Medir tamaño real
-  const W=inner.scrollWidth;
-  const H=inner.scrollHeight;
-
-  // A4 a 96dpi con margen 8mm (~30px cada lado)
+  const W=inner.offsetWidth;
+  const H=inner.offsetHeight;
   const A4L={w:1086,h:748};
   const A4P={w:748,h:1086};
-
   const sL=Math.min(A4L.w/W, A4L.h/H);
   const sP=Math.min(A4P.w/W, A4P.h/H);
   const useL=sL>=sP;
-  const scale=parseFloat(Math.min(1, useL?sL:sP).toFixed(4));
+  const scale=parseFloat(Math.min(1,useL?sL:sP).toFixed(4));
   const ori=useL?'landscape':'portrait';
-
-  // Eliminar CSS previo
   let s=document.getElementById('_rptcss_');
   if(s)s.remove();
   s=document.createElement('style');
   s.id='_rptcss_';
-  s.textContent=`
-    @media print {
-      @page{size:A4 ${ori};margin:8mm;}
-      body>*{display:none!important;}
-      #rpt-outer{display:block!important;position:fixed;top:0;left:0;overflow:visible!important;background:white;}
-      #rpt-inner{
-        transform:scale(${scale});
-        transform-origin:top left;
-        width:${W}px!important;
-        overflow:visible!important;
-      }
-      #rpt-btns{display:none!important;}
-      *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
-    }
-  `;
+  s.textContent=`@media print{
+    @page{size:A4 ${ori};margin:8mm;}
+    body>*{display:none!important;}
+    #rpt-inner{display:inline-block!important;position:fixed;top:0;left:0;
+      transform:scale(${scale});transform-origin:top left;
+      width:${W}px!important;overflow:visible!important;}
+    #rpt-btns{display:none!important;}
+    *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}}`;
   document.head.appendChild(s);
   window.print();
   setTimeout(()=>{const el=document.getElementById('_rptcss_');if(el)el.remove();},3000);
 }
+
 
 
 // ── SERVICE WORKER ───────────────────────────────────────
